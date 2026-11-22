@@ -159,6 +159,7 @@ fun HomeSettingsScreen(
     onOpenBatterySettings: () -> Unit,
     onToggleTracking: (Boolean) -> Unit,
     onToggleLockScreenNotif: (Boolean) -> Unit,
+    onToggleAndroidAutoLyrics: (Boolean) -> Unit,
     onToggleOnlineLookup: (Boolean) -> Unit,
     onToggleOfflineCache: (Boolean) -> Unit,
     onClearCache: () -> Unit,
@@ -241,6 +242,7 @@ fun HomeSettingsScreen(
                         onOpenBatterySettings = onOpenBatterySettings,
                         onToggleTracking = onToggleTracking,
                         onToggleLockScreenNotif = onToggleLockScreenNotif,
+                        onToggleAndroidAutoLyrics = onToggleAndroidAutoLyrics,
                         onToggleOnlineLookup = onToggleOnlineLookup,
                         onToggleOfflineCache = onToggleOfflineCache,
                         onClearCache = onClearCache,
@@ -310,6 +312,7 @@ fun HomeSettingsScreen(
                     onOpenBatterySettings = onOpenBatterySettings,
                     onToggleTracking = onToggleTracking,
                     onToggleLockScreenNotif = onToggleLockScreenNotif,
+                    onToggleAndroidAutoLyrics = onToggleAndroidAutoLyrics,
                     onToggleOnlineLookup = onToggleOnlineLookup,
                     onToggleOfflineCache = onToggleOfflineCache,
                     onClearCache = onClearCache,
@@ -387,6 +390,7 @@ private fun CategorySettingsBody(
     onOpenBatterySettings: () -> Unit,
     onToggleTracking: (Boolean) -> Unit,
     onToggleLockScreenNotif: (Boolean) -> Unit,
+    onToggleAndroidAutoLyrics: (Boolean) -> Unit,
     onToggleOnlineLookup: (Boolean) -> Unit,
     onToggleOfflineCache: (Boolean) -> Unit,
     onClearCache: () -> Unit,
@@ -427,6 +431,7 @@ private fun CategorySettingsBody(
             onTogglePixelShift = onTogglePixelShift,
             onToggleKeepScreenOn = onToggleKeepScreenOn,
             onToggleHaptics = onToggleHaptics,
+            onToggleAndroidAutoLyrics = onToggleAndroidAutoLyrics,
         )
         SettingsCategory.SOURCES -> SourcesPermissionsCategoryCard(
             uiState = uiState,
@@ -973,12 +978,20 @@ private fun LockScreenAodCategoryCard(
     onTogglePixelShift: (Boolean) -> Unit,
     onToggleKeepScreenOn: (Boolean) -> Unit,
     onToggleHaptics: (Boolean) -> Unit,
+    onToggleAndroidAutoLyrics: (Boolean) -> Unit,
 ) {
     val prefs = uiState.syncState.preferences
     val perms = uiState.permissions
     val haptics = LocalHapticFeedback.current
 
     SettingsCard(title = "Lock-Screen AOD & Panel Protection") {
+        SettingsSwitchRow(
+            title = "Android Auto Passenger Display",
+            subtitle = "Shows synced pure-black lyrics on your Android Auto car screen for passengers (audio & maps stay active)",
+            checked = prefs.androidAutoLyricsEnabled,
+            onCheckedChange = onToggleAndroidAutoLyrics,
+            testTag = "android_auto_lyrics_switch"
+        )
         SettingsSwitchRow(
             title = "Auto-Show on Lock Screen",
             subtitle = "Opens AMOLED lyrics when locked during a song; stays off for podcasts, vlogs, or unavailable lyrics",
@@ -1269,10 +1282,10 @@ private fun SourcesPermissionsCategoryCard(
                         color = TextMuted
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.DirectionsCar, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Rounded.DirectionsCar, contentDescription = null, tint = StageCyan, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Android Auto head units are excluded for driver safety; playback continues undisturbed.",
+                            text = "Android Auto Passenger Mode: Open LyricVerse on your car screen while Spotify/YT Music plays. For sideloaded APKs, enable Android Auto Settings → tap Version 10× → Developer settings → Unknown sources.",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextMuted
                         )

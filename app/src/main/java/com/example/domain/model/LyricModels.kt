@@ -128,4 +128,5 @@ data class KaraokeStylePreferences(
     val onlineLookupEnabled: Boolean = true,
     val offlineCacheEnabled: Boolean = true,
     val lockScreenNotificationEnabled: Boolean = false,
+    val androidAutoLyricsEnabled: Boolean = true,
 )

@@ -314,6 +314,12 @@ class LyricVerseViewModel(
         }
     }
 
+    fun updateAndroidAutoLyricsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesDataStore.update { it.copy(androidAutoLyricsEnabled = enabled) }
+        }
+    }
+
     private fun syncCompanionServiceState() {
         val prefs = syncCoordinator.preferencesFlow.value
         val needsService = prefs.autoShowOnLockEnabled || prefs.lockScreenNotificationEnabled

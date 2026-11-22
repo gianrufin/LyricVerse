@@ -15,6 +15,10 @@
     <!-- Optional Display Over Other Apps permission: grants Android 10+ background activity launch exemption for Auto-Show on Lock -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- Android Auto Car App Library: passenger lyrics surface without interrupting audio or maps -->
+    <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
+    <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
+
     <application
         android:name=".LyricVerseApplication"
         android:allowBackup="true"
@@ -25,6 +29,13 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.LyricVerse">
+
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="1" />
 
         <!-- Opens directly to Settings, Theme, Design & Access -->
         <activity
@@ -83,6 +94,16 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-activated lock-screen AMOLED lyrics companion and screen-lock listener without audio capture or playback control." />
+        </service>
+
+        <service
+            android:name=".auto.LyricVerseCarAppService"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.NAVIGATION" />
+            </intent-filter>
         </service>
 
     </application>

@@ -48,6 +48,7 @@ class PreferencesDataStore(private val context: Context) {
         val ONLINE_LOOKUP_ENABLED = booleanPreferencesKey("online_lookup_enabled")
         val OFFLINE_CACHE_ENABLED = booleanPreferencesKey("offline_cache_enabled")
         val LOCK_SCREEN_NOTIF_ENABLED = booleanPreferencesKey("lock_screen_notif_enabled")
+        val ANDROID_AUTO_LYRICS_ENABLED = booleanPreferencesKey("android_auto_lyrics_enabled")
     }
 
     val preferencesFlow: Flow<KaraokeStylePreferences> = context.lyricVerseDataStore.data.map { prefs ->
@@ -79,6 +80,7 @@ class PreferencesDataStore(private val context: Context) {
             prefs[Keys.ONLINE_LOOKUP_ENABLED] = updated.onlineLookupEnabled
             prefs[Keys.OFFLINE_CACHE_ENABLED] = updated.offlineCacheEnabled
             prefs[Keys.LOCK_SCREEN_NOTIF_ENABLED] = updated.lockScreenNotificationEnabled
+            prefs[Keys.ANDROID_AUTO_LYRICS_ENABLED] = updated.androidAutoLyricsEnabled
         }
     }
 
@@ -106,6 +108,7 @@ class PreferencesDataStore(private val context: Context) {
             onlineLookupEnabled = prefs[Keys.ONLINE_LOOKUP_ENABLED] ?: true,
             offlineCacheEnabled = prefs[Keys.OFFLINE_CACHE_ENABLED] ?: true,
             lockScreenNotificationEnabled = prefs[Keys.LOCK_SCREEN_NOTIF_ENABLED] ?: false,
+            androidAutoLyricsEnabled = prefs[Keys.ANDROID_AUTO_LYRICS_ENABLED] ?: true,
         )
     }
 

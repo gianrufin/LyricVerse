@@ -128,6 +128,7 @@ fun LyricVerseApp(viewModel: LyricVerseViewModel) {
                     },
                     onToggleTracking = viewModel::toggleTrackingEnabled,
                     onToggleLockScreenNotif = viewModel::updateLockScreenNotificationEnabled,
+                    onToggleAndroidAutoLyrics = viewModel::updateAndroidAutoLyricsEnabled,
                     onToggleOnlineLookup = viewModel::updateOnlineLookupEnabled,
                     onToggleOfflineCache = viewModel::updateOfflineCacheEnabled,
                     onClearCache = viewModel::clearLyricsCache,

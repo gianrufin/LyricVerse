@@ -129,11 +129,29 @@ class MediaSessionTracker(private val context: Context) {
     }
 
     private fun selectBestController(controllers: List<MediaController>) {
-        // Ignore our own package if ever present; prioritize actively playing sessions
+        // Ignore our own package and deprioritize empty Android Auto projection/system wrappers
         val candidates = controllers.filter { it.packageName != context.packageName }
-        val chosen = candidates.firstOrNull { isPlayingState(it.playbackState) }
-            ?: candidates.firstOrNull { it.metadata != null }
-            ?: candidates.firstOrNull()
+        val chosenIndex = MediaSessionSelector.selectBestIndex(
+            candidates.map { controller ->
+                val metadata = controller.metadata
+                val title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE)
+                    ?: metadata?.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
+                    ?: ""
+                val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)
+                    ?: metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
+                    ?: metadata?.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE)
+                    ?: metadata?.getString(MediaMetadata.METADATA_KEY_DISPLAY_DESCRIPTION)
+                    ?: ""
+                MediaSessionSelector.CandidateSummary(
+                    packageName = controller.packageName,
+                    isPlaying = isPlayingState(controller.playbackState),
+                    hasTitle = title.isNotBlank(),
+                    hasArtist = artist.isNotBlank(),
+                    hasMetadata = metadata != null,
+                )
+            }
+        )
+        val chosen = chosenIndex?.let { candidates[it] }
 
         _diagnosticInfo.value = MediaSessionDiagnostics(
             listenerGranted = true,
@@ -174,6 +192,7 @@ class MediaSessionTracker(private val context: Context) {
         val artist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)
             ?: metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
             ?: metadata?.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE)
+            ?: metadata?.getString(MediaMetadata.METADATA_KEY_DISPLAY_DESCRIPTION)
             ?: ""
         val album = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty()
         val duration = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION)?.coerceAtLeast(0L) ?: 0L
@@ -298,3 +317,32 @@ data class MediaSessionDiagnostics(
     val selectedPackage: String? = null,
     val selectedAppLabel: String? = null,
 )
+
+object MediaSessionSelector {
+    data class CandidateSummary(
+        val packageName: String,
+        val isPlaying: Boolean,
+        val hasTitle: Boolean,
+        val hasArtist: Boolean,
+        val hasMetadata: Boolean,
+    ) {
+        val hasFullTrackMetadata: Boolean get() = hasTitle && hasArtist
+        val isProjectionBridge: Boolean
+            get() = packageName == "com.google.android.projection.gearhead" ||
+                packageName == "com.google.android.googlequicksearchbox"
+    }
+
+    fun selectBestIndex(candidates: List<CandidateSummary>): Int? {
+        if (candidates.isEmpty()) return null
+        val scored = candidates.withIndex().maxByOrNull { (_, c) ->
+            var score = 0
+            if (c.isPlaying) score += 100
+            if (c.hasFullTrackMetadata) score += 40
+            else if (c.hasTitle) score += 20
+            if (c.hasMetadata) score += 5
+            if (c.isProjectionBridge && !c.hasFullTrackMetadata) score -= 30
+            score
+        }
+        return scored?.index
+    }
+}
