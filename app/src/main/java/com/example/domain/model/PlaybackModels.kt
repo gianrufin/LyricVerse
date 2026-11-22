@@ -22,6 +22,7 @@ data class PlaybackSnapshot(
     val isPlaying: Boolean = false,
     val lastPositionUpdateElapsedMs: Long = 0L,
     val isDemoMode: Boolean = false,
+    val albumLightColors: List<Long> = emptyList(),
 ) {
     val hasValidMetadata: Boolean
         get() = trackTitle.isNotBlank() && artistName.isNotBlank()
@@ -44,4 +45,5 @@ data class DemoTrack(
     val syncedLrc: String?,
     val plainLyrics: String,
     val genreTag: String,
+    val albumLightColors: List<Long> = emptyList(),
 )

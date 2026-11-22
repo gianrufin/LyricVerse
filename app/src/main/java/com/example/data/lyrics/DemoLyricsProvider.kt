@@ -20,6 +20,7 @@ class DemoLyricsProvider : LyricsProvider {
             album = "Afterglow Sessions",
             durationMs = 54_000L,
             genreTag = "Synthwave · Synced LRC",
+            albumLightColors = listOf(0xFF93E5FFL, 0xFFF5B8FFL, 0xFFC7D2FEL),
             syncedLrc = """
                 [00:00.50]City lights blur through the midnight rain
                 [00:04.20]Static humming down the interstate lane
@@ -57,6 +58,7 @@ class DemoLyricsProvider : LyricsProvider {
             album = "Late Vinyl",
             durationMs = 46_000L,
             genreTag = "Indie Soul · Synced LRC",
+            albumLightColors = listOf(0xFFFDE68AL, 0xFFFDBA74L, 0xFFFECDD3L),
             syncedLrc = """
                 [00:00.40]Needle drops softly on the cedar floor
                 [00:04.10]Warm amber spilling through the studio door
@@ -91,6 +93,7 @@ class DemoLyricsProvider : LyricsProvider {
             album = "Acoustic Postcards",
             durationMs = 40_000L,
             genreTag = "Acoustic · Plain Fallback",
+            albumLightColors = listOf(0xFFA7F3D0L, 0xFFBAE6FDL, 0xFFE0E7FFL),
             syncedLrc = null,
             plainLyrics = """
                 [Plain Lyrics Demo — No Timestamps Supplied]

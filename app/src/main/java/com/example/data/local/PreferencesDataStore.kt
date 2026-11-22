@@ -14,6 +14,8 @@ import com.example.domain.model.KaraokeStylePreferences
 import com.example.domain.model.LockscreenOrientation
 import com.example.domain.model.LyricColorPreset
 import com.example.domain.model.LyricTextAlignment
+import com.example.domain.model.LyricTransitionSpeed
+import com.example.domain.model.LyricTransitionStyle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -31,6 +33,8 @@ class PreferencesDataStore(private val context: Context) {
         val NEXT_LINE_VISIBLE = booleanPreferencesKey("next_line_visible")
         val WORD_BY_WORD_ENABLED = booleanPreferencesKey("word_by_word_enabled")
         val GLASS_BLUR_ENABLED = booleanPreferencesKey("glass_blur_enabled")
+        val TRANSITION_STYLE = stringPreferencesKey("transition_style")
+        val TRANSITION_SPEED = stringPreferencesKey("transition_speed")
         val SHOW_TRACK_INTRO = booleanPreferencesKey("show_track_intro")
         val LOCKSCREEN_ORIENTATION = stringPreferencesKey("lockscreen_orientation")
         val AUTO_SHOW_ON_LOCK = booleanPreferencesKey("auto_show_on_lock")
@@ -60,6 +64,8 @@ class PreferencesDataStore(private val context: Context) {
             prefs[Keys.NEXT_LINE_VISIBLE] = updated.nextLineVisible
             prefs[Keys.WORD_BY_WORD_ENABLED] = updated.wordByWordEnabled
             prefs[Keys.GLASS_BLUR_ENABLED] = updated.glassBlurEnabled
+            prefs[Keys.TRANSITION_STYLE] = updated.transitionStyle.name
+            prefs[Keys.TRANSITION_SPEED] = updated.transitionSpeed.name
             prefs[Keys.SHOW_TRACK_INTRO] = updated.showTrackIntroOnStart
             prefs[Keys.LOCKSCREEN_ORIENTATION] = updated.lockscreenOrientation.name
             prefs[Keys.AUTO_SHOW_ON_LOCK] = updated.autoShowOnLockEnabled
@@ -80,11 +86,13 @@ class PreferencesDataStore(private val context: Context) {
         return KaraokeStylePreferences(
             fontFamily = prefs[Keys.FONT_FAMILY].parseEnum(KaraokeFontFamily.PLUS_JAKARTA_SANS),
             fontSizeSp = (prefs[Keys.FONT_SIZE_SP] ?: 28f).coerceIn(20f, 42f),
-            colorPreset = prefs[Keys.COLOR_PRESET].parseEnum(LyricColorPreset.STAGE_WHITE),
+            colorPreset = prefs[Keys.COLOR_PRESET].parseEnum(LyricColorPreset.ALBUM_ART),
             alignment = prefs[Keys.ALIGNMENT].parseEnum(LyricTextAlignment.CENTER),
             nextLineVisible = prefs[Keys.NEXT_LINE_VISIBLE] ?: true,
             wordByWordEnabled = prefs[Keys.WORD_BY_WORD_ENABLED] ?: true,
             glassBlurEnabled = prefs[Keys.GLASS_BLUR_ENABLED] ?: true,
+            transitionStyle = prefs[Keys.TRANSITION_STYLE].parseEnum(LyricTransitionStyle.APPLE_GLASS),
+            transitionSpeed = prefs[Keys.TRANSITION_SPEED].parseEnum(LyricTransitionSpeed.BALANCED),
             showTrackIntroOnStart = prefs[Keys.SHOW_TRACK_INTRO] ?: true,
             lockscreenOrientation = prefs[Keys.LOCKSCREEN_ORIENTATION].parseEnum(LockscreenOrientation.AUTO),
             autoShowOnLockEnabled = prefs[Keys.AUTO_SHOW_ON_LOCK] ?: false,

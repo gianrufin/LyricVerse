@@ -26,6 +26,8 @@ import com.example.domain.model.LockscreenOrientation
 import com.example.domain.model.LyricColorPreset
 import com.example.domain.model.LyricDocument
 import com.example.domain.model.LyricTextAlignment
+import com.example.domain.model.LyricTransitionSpeed
+import com.example.domain.model.LyricTransitionStyle
 import com.example.media.AodLyricsTileService
 import com.example.media.CompanionSyncState
 import com.example.media.LyricSyncCoordinator
@@ -234,6 +236,14 @@ class LyricVerseViewModel(
         viewModelScope.launch { preferencesDataStore.update { it.copy(glassBlurEnabled = enabled) } }
     }
 
+    fun updateTransitionStyle(style: LyricTransitionStyle) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(transitionStyle = style) } }
+    }
+
+    fun updateTransitionSpeed(speed: LyricTransitionSpeed) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(transitionSpeed = speed) } }
+    }
+
     fun updateShowTrackIntroOnStart(enabled: Boolean) {
         viewModelScope.launch { preferencesDataStore.update { it.copy(showTrackIntroOnStart = enabled) } }
     }
@@ -250,7 +260,7 @@ class LyricVerseViewModel(
             syncCompanionServiceState()
             if (enabled && !readPermissionsSnapshot().overlayPermissionGranted) {
                 _statusBanner.value =
-                    "Auto-Show enabled. Grant 'Display Over Apps' below for background Spotify/Apple Music lock launches."
+                    "Auto-Show enabled. Grant 'Display Over Apps' in Lock & AOD for background music players."
             }
         }
     }

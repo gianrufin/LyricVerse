@@ -44,6 +44,7 @@ class DemoPlaybackController(
             isPlaying = autoPlay,
             lastPositionUpdateElapsedMs = now,
             isDemoMode = true,
+            albumLightColors = track.albumLightColors,
         )
         scheduleEndMonitor()
     }
@@ -104,6 +105,7 @@ class DemoPlaybackController(
             isPlaying = true,
             lastPositionUpdateElapsedMs = elapsedRealtimeProvider(),
             isDemoMode = true,
+            albumLightColors = emptyList(),
         )
     }
 

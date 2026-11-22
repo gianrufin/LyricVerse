@@ -52,24 +52,22 @@ sealed interface LyricsLookupResult {
 enum class FontCategory(val label: String) {
     STAGE("Stage Clean"),
     PREMIUM("Premium Editorial"),
-    FUN("Fun & Expressive"),
 }
 
 enum class KaraokeFontFamily(val label: String, val category: FontCategory) {
-    PLUS_JAKARTA_SANS("Jakarta Stage", FontCategory.STAGE),
-    OUTFIT("Outfit Rounded", FontCategory.STAGE),
+    PLUS_JAKARTA_SANS("Jakarta", FontCategory.STAGE),
+    OUTFIT("Outfit", FontCategory.STAGE),
     SPACE_GROTESK("Space Grotesk", FontCategory.STAGE),
+    SORA("Sora", FontCategory.STAGE),
+    DM_SANS("DM Sans", FontCategory.STAGE),
     JETBRAINS_MONO("JetBrains Mono", FontCategory.STAGE),
 
-    INSTRUMENT_SERIF("Instrument Serif", FontCategory.PREMIUM),
-    CORMORANT_GARAMOND("Cormorant Luxury", FontCategory.PREMIUM),
-    PLAYFAIR_DISPLAY("Playfair Serif", FontCategory.PREMIUM),
-    SYNE("Syne Editorial", FontCategory.PREMIUM),
-
-    FREDOKA("Fredoka Pop", FontCategory.FUN),
-    BRICOLAGE_GROTESQUE("Bricolage Indie", FontCategory.FUN),
-    PACIFICO("Pacifico Brush", FontCategory.FUN),
-    CAVEAT("Caveat Script", FontCategory.FUN),
+    INSTRUMENT_SERIF("Instrument", FontCategory.PREMIUM),
+    CORMORANT_GARAMOND("Cormorant", FontCategory.PREMIUM),
+    PLAYFAIR_DISPLAY("Playfair", FontCategory.PREMIUM),
+    SYNE("Syne", FontCategory.PREMIUM),
+    FRAUNCES("Fraunces", FontCategory.PREMIUM),
+    CINZEL("Cinzel", FontCategory.PREMIUM),
 }
 
 enum class LyricTextAlignment(val label: String) {
@@ -85,6 +83,7 @@ enum class LockscreenOrientation(val label: String) {
 }
 
 enum class LyricColorPreset(val label: String) {
+    ALBUM_ART("Album Color"),
     STAGE_WHITE("Pure White"),
     ELECTRIC_VIOLET("Electric Violet"),
     WARM_AMBER("Stage Amber"),
@@ -92,14 +91,30 @@ enum class LyricColorPreset(val label: String) {
     DYNAMIC_PRIMARY("M3 Accent"),
 }
 
+enum class LyricTransitionStyle(val label: String, val description: String) {
+    APPLE_GLASS("Glass Dissolve", "Frosted glass blur entry with gentle vertical lift"),
+    STAGE_SLIDE("Stage Glide", "Crisp vertical glide with smooth depth scale"),
+    SILK_FADE("Silk Crossfade", "Smooth atmospheric dissolve with zero vertical jump"),
+    SPOTLIGHT_POP("Spotlight Pop", "Elastic scale reveal into razor-sharp focus"),
+    TYPEWRITER_SNAP("Instant Snap", "Zero-lag crisp cut for rapid lyrics"),
+}
+
+enum class LyricTransitionSpeed(val label: String, val multiplier: Float) {
+    SNAPPY("Fast", 0.65f),
+    BALANCED("Balanced", 1.0f),
+    CINEMATIC("Cinematic", 1.45f),
+}
+
 data class KaraokeStylePreferences(
     val fontFamily: KaraokeFontFamily = KaraokeFontFamily.PLUS_JAKARTA_SANS,
     val fontSizeSp: Float = 28f,
-    val colorPreset: LyricColorPreset = LyricColorPreset.STAGE_WHITE,
+    val colorPreset: LyricColorPreset = LyricColorPreset.ALBUM_ART,
     val alignment: LyricTextAlignment = LyricTextAlignment.CENTER,
     val nextLineVisible: Boolean = true,
     val wordByWordEnabled: Boolean = true,
     val glassBlurEnabled: Boolean = true,
+    val transitionStyle: LyricTransitionStyle = LyricTransitionStyle.APPLE_GLASS,
+    val transitionSpeed: LyricTransitionSpeed = LyricTransitionSpeed.BALANCED,
     val showTrackIntroOnStart: Boolean = true,
     val lockscreenOrientation: LockscreenOrientation = LockscreenOrientation.AUTO,
     val autoShowOnLockEnabled: Boolean = false,

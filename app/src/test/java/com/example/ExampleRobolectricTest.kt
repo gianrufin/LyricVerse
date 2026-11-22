@@ -63,15 +63,23 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `cuj_opens_directly_to_settings_with_show_lyrics_cta_and_auto_lock_controls`() {
+    fun `cuj_opens_directly_to_categorized_settings_with_show_lyrics_cta`() {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("home_settings_screen").assertIsDisplayed()
         composeRule.onNodeWithTag("show_lyrics_button").assertIsDisplayed()
-        composeRule.onNodeWithTag("pin_qs_tile_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("category_theme").assertIsDisplayed()
+        composeRule.onNodeWithTag("category_transitions").assertIsDisplayed()
+        composeRule.onNodeWithTag("category_lock_aod").assertIsDisplayed()
+        composeRule.onNodeWithTag("category_sources").assertIsDisplayed()
+        composeRule.onNodeWithTag("color_album_art").assertIsDisplayed()
+
+        // Navigate to Lock & AOD category
+        composeRule.onNodeWithTag("category_lock_aod").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("auto_show_lock_switch").assertIsDisplayed()
         composeRule.onNodeWithTag("orientation_landscape").assertIsDisplayed()
 
-        // Start synced demo track and verify preview updates
+        // Start synced demo track and verify transport appears
         composeRule.onNodeWithTag("demo_chip_0").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("demo_play_button").assertIsDisplayed()
@@ -79,6 +87,8 @@ class ExampleRobolectricTest {
 
     @Test
     fun `cuj_missing_metadata_simulation_updates_minimal_preview`() {
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("category_sources").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("simulate_missing_metadata_button").performClick()
         composeRule.waitForIdle()

@@ -10,6 +10,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -58,12 +59,15 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -75,23 +79,26 @@ import com.example.domain.model.KaraokeFontFamily
 import com.example.domain.model.LyricColorPreset
 import com.example.domain.model.LyricSyncType
 import com.example.domain.model.LyricTextAlignment
+import com.example.domain.model.LyricTransitionStyle
 import com.example.domain.model.LyricWord
 import com.example.domain.model.PlaybackSessionStatus
+import com.example.domain.model.PlaybackSnapshot
+import com.example.media.AlbumArtColorExtractor
 import com.example.media.CompanionSyncState
 import com.example.media.LyricsStageState
 import com.example.media.PlaybackClockExtrapolator
-import com.example.ui.theme.BricolageGrotesqueFamily
-import com.example.ui.theme.CaveatFontFamily
+import com.example.ui.theme.CinzelFontFamily
 import com.example.ui.theme.CormorantGaramondFamily
-import com.example.ui.theme.FredokaFontFamily
+import com.example.ui.theme.DmSansFontFamily
+import com.example.ui.theme.FrauncesFontFamily
 import com.example.ui.theme.InstrumentSerifFamily
 import com.example.ui.theme.JetBrainsMonoFamily
 import com.example.ui.theme.LyricActive
 import com.example.ui.theme.LyricPast
 import com.example.ui.theme.OutfitFontFamily
-import com.example.ui.theme.PacificoFontFamily
 import com.example.ui.theme.PlayfairDisplayFamily
 import com.example.ui.theme.PlusJakartaSansFamily
+import com.example.ui.theme.SoraFontFamily
 import com.example.ui.theme.SpaceGroteskFamily
 import com.example.ui.theme.StageAmber
 import com.example.ui.theme.StageCyan
@@ -102,20 +109,21 @@ import com.example.ui.theme.SyneFontFamily
 import com.example.ui.theme.TextMuted
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlin.math.roundToInt
 
 fun KaraokeFontFamily.toComposeFontFamily(): FontFamily = when (this) {
     KaraokeFontFamily.PLUS_JAKARTA_SANS -> PlusJakartaSansFamily
     KaraokeFontFamily.OUTFIT -> OutfitFontFamily
     KaraokeFontFamily.SPACE_GROTESK -> SpaceGroteskFamily
+    KaraokeFontFamily.SORA -> SoraFontFamily
+    KaraokeFontFamily.DM_SANS -> DmSansFontFamily
     KaraokeFontFamily.JETBRAINS_MONO -> JetBrainsMonoFamily
     KaraokeFontFamily.INSTRUMENT_SERIF -> InstrumentSerifFamily
     KaraokeFontFamily.CORMORANT_GARAMOND -> CormorantGaramondFamily
     KaraokeFontFamily.PLAYFAIR_DISPLAY -> PlayfairDisplayFamily
     KaraokeFontFamily.SYNE -> SyneFontFamily
-    KaraokeFontFamily.FREDOKA -> FredokaFontFamily
-    KaraokeFontFamily.BRICOLAGE_GROTESQUE -> BricolageGrotesqueFamily
-    KaraokeFontFamily.PACIFICO -> PacificoFontFamily
-    KaraokeFontFamily.CAVEAT -> CaveatFontFamily
+    KaraokeFontFamily.FRAUNCES -> FrauncesFontFamily
+    KaraokeFontFamily.CINZEL -> CinzelFontFamily
 }
 
 fun LyricTextAlignment.toComposeTextAlign(): TextAlign = when (this) {
@@ -124,8 +132,15 @@ fun LyricTextAlignment.toComposeTextAlign(): TextAlign = when (this) {
     LyricTextAlignment.END -> TextAlign.End
 }
 
+fun resolveAlbumLightGradient(snapshot: PlaybackSnapshot): List<Color> {
+    val raw = snapshot.albumLightColors.takeIf { it.size >= 2 }
+        ?: AlbumArtColorExtractor.fallbackGradientForSignature(snapshot.trackSignatureKey)
+    return raw.map { Color(it) }
+}
+
 @Composable
-fun LyricColorPreset.resolveActiveColor(): Color = when (this) {
+fun LyricColorPreset.resolveActiveColor(snapshot: PlaybackSnapshot): Color = when (this) {
+    LyricColorPreset.ALBUM_ART -> resolveAlbumLightGradient(snapshot).first()
     LyricColorPreset.STAGE_WHITE -> Color.White
     LyricColorPreset.ELECTRIC_VIOLET -> StageViolet
     LyricColorPreset.WARM_AMBER -> StageAmber
@@ -133,10 +148,17 @@ fun LyricColorPreset.resolveActiveColor(): Color = when (this) {
     LyricColorPreset.DYNAMIC_PRIMARY -> MaterialTheme.colorScheme.primary
 }
 
+@Composable
+fun LyricColorPreset.resolveActiveBrush(snapshot: PlaybackSnapshot): Brush? {
+    if (this != LyricColorPreset.ALBUM_ART) return null
+    val stops = resolveAlbumLightGradient(snapshot)
+    return Brush.linearGradient(colors = stops)
+}
+
 /**
  * Minimal centered karaoke view for pure #000000 AMOLED lock-screen & live settings preview.
- * Supports brief Song Title + Artist intro on track start, Apple Music-style brief glass blur
- * on line/word entry, word-by-word reveal, and landscape-responsive sizing.
+ * Supports brief Song Title + Artist intro on track start, album artwork light gradient typography,
+ * customizable transitions, Apple-style frosted glass blur, word-by-word reveal, and landscape sizing.
  */
 @Composable
 fun AodTwoLineLyricsView(
@@ -144,15 +166,21 @@ fun AodTwoLineLyricsView(
     modifier: Modifier = Modifier,
     isPreview: Boolean = false,
     introTriggerNonce: Int = 0,
+    transitionReplayNonce: Int = 0,
 ) {
     val prefs = state.preferences
     val fontFamily = prefs.fontFamily.toComposeFontFamily()
     val textAlign = prefs.alignment.toComposeTextAlign()
-    val activeColor = prefs.colorPreset.resolveActiveColor()
+    val snap = state.snapshot
+    val activeColor = prefs.colorPreset.resolveActiveColor(snap)
+    val activeBrush = prefs.colorPreset.resolveActiveBrush(snap)
+    val albumGradientStops = remember(snap.albumLightColors, snap.trackSignatureKey) {
+        resolveAlbumLightGradient(snap)
+    }
     val doc = (state.lyricsState as? LyricsStageState.Loaded)?.document
     val lines = doc?.lines.orEmpty()
     val idx = state.activeLineIndex
-    val snap = state.snapshot
+    val speedMult = prefs.transitionSpeed.multiplier
 
     // Smooth ~22fps clock extrapolation during active synced playback for fluid word-by-word pacing
     var liveEffectivePosMs by remember { mutableLongStateOf(state.livePositionMs + prefs.syncOffsetMs) }
@@ -185,10 +213,7 @@ fun AodTwoLineLyricsView(
     // Track title + artist intro gate (brief ~2.4s display when a song starts or AOD opens)
     val trackTitle = snap.trackTitle.ifBlank { doc?.trackTitle.orEmpty() }
     val artistName = snap.artistName.ifBlank { doc?.artistName.orEmpty() }
-    val trackIdentityKey = when {
-        trackTitle.isNotBlank() -> "$trackTitle|$artistName"
-        else -> ""
-    }
+    val trackIdentityKey = if (trackTitle.isNotBlank()) "$trackTitle|$artistName" else ""
     var showingIntro by remember { mutableStateOf(false) }
 
     LaunchedEffect(trackIdentityKey, prefs.showTrackIntroOnStart, isPreview, introTriggerNonce) {
@@ -221,7 +246,8 @@ fun AodTwoLineLyricsView(
         AnimatedContent(
             targetState = if (showingIntro) "INTRO:$trackIdentityKey" else "LYRICS",
             transitionSpec = {
-                fadeIn(tween(340)) togetherWith fadeOut(tween(280))
+                val dur = (320 * speedMult).roundToInt().coerceIn(120, 600)
+                fadeIn(tween(dur)) togetherWith fadeOut(tween((dur * 0.85f).roundToInt()))
             },
             label = "aod_intro_vs_lyrics"
         ) { phase ->
@@ -231,10 +257,12 @@ fun AodTwoLineLyricsView(
                     artist = artistName,
                     fontFamily = fontFamily,
                     activeColor = activeColor,
+                    activeBrush = activeBrush,
                     baseSizeSp = baseSizeSp,
                     textAlign = textAlign,
                     horizontalAlign = horizontalAlign,
                     glassBlurEnabled = prefs.glassBlurEnabled,
+                    speedMultiplier = speedMult,
                 )
             } else {
                 val activeLine = if (doc?.syncType == LyricSyncType.SYNCED) {
@@ -290,40 +318,91 @@ fun AodTwoLineLyricsView(
                     horizontalAlignment = horizontalAlign,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    val transitionKey = "${activeLine?.index ?: -1}:$primaryText"
+                    val transitionKey = "${activeLine?.index ?: -1}:$primaryText:$transitionReplayNonce:${prefs.transitionStyle.name}"
                     AnimatedContent(
                         targetState = transitionKey,
                         transitionSpec = {
-                            (fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
-                                slideInVertically { it / 6 }) togetherWith
-                                (fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) +
-                                    slideOutVertically { -it / 6 })
+                            val dur = (360 * speedMult).roundToInt().coerceIn(90, 700)
+                            when (prefs.transitionStyle) {
+                                LyricTransitionStyle.APPLE_GLASS -> {
+                                    (fadeIn(tween(dur, easing = FastOutSlowInEasing)) +
+                                        slideInVertically(tween(dur)) { it / 6 }) togetherWith
+                                        (fadeOut(tween((dur * 0.75f).roundToInt())) +
+                                            slideOutVertically(tween(dur)) { -it / 6 })
+                                }
+                                LyricTransitionStyle.STAGE_SLIDE -> {
+                                    (fadeIn(tween(dur)) +
+                                        slideInVertically(
+                                            spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)
+                                        ) { it / 3 }) togetherWith
+                                        (fadeOut(tween((dur * 0.7f).roundToInt())) +
+                                            slideOutVertically(tween(dur)) { -it / 3 })
+                                }
+                                LyricTransitionStyle.SILK_FADE -> {
+                                    fadeIn(tween(dur + 80, easing = FastOutSlowInEasing)) togetherWith
+                                        fadeOut(tween(dur, easing = FastOutSlowInEasing))
+                                }
+                                LyricTransitionStyle.SPOTLIGHT_POP -> {
+                                    (fadeIn(tween(dur)) +
+                                        scaleIn(
+                                            initialScale = 0.86f,
+                                            animationSpec = spring(
+                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                stiffness = Spring.StiffnessMediumLow
+                                            )
+                                        )) togetherWith fadeOut(tween((dur * 0.65f).roundToInt()))
+                                }
+                                LyricTransitionStyle.TYPEWRITER_SNAP -> {
+                                    fadeIn(tween(90)) togetherWith fadeOut(tween(70))
+                                }
+                            }
                         },
                         label = "aod_active_line"
                     ) { key ->
-                        val lineBlurAnim = remember(key, prefs.glassBlurEnabled) {
-                            Animatable(if (prefs.glassBlurEnabled) 13f else 0f)
+                        val initialBlur = when {
+                            !prefs.glassBlurEnabled -> 0f
+                            prefs.transitionStyle == LyricTransitionStyle.APPLE_GLASS -> 14f
+                            prefs.transitionStyle == LyricTransitionStyle.SPOTLIGHT_POP -> 10f
+                            prefs.transitionStyle == LyricTransitionStyle.SILK_FADE -> 6f
+                            prefs.transitionStyle == LyricTransitionStyle.STAGE_SLIDE -> 4f
+                            else -> 0f
                         }
-                        val lineScaleAnim = remember(key) { Animatable(0.955f) }
+                        val initialScale = when (prefs.transitionStyle) {
+                            LyricTransitionStyle.SPOTLIGHT_POP -> 0.88f
+                            LyricTransitionStyle.STAGE_SLIDE -> 0.93f
+                            LyricTransitionStyle.APPLE_GLASS -> 0.955f
+                            LyricTransitionStyle.SILK_FADE -> 0.985f
+                            LyricTransitionStyle.TYPEWRITER_SNAP -> 1.0f
+                        }
 
-                        LaunchedEffect(key, prefs.glassBlurEnabled) {
-                            lineBlurAnim.snapTo(if (prefs.glassBlurEnabled) 13f else 0f)
-                            lineScaleAnim.snapTo(0.955f)
-                            if (prefs.glassBlurEnabled) {
+                        val lineBlurAnim = remember(key) { Animatable(initialBlur) }
+                        val lineScaleAnim = remember(key) { Animatable(initialScale) }
+
+                        LaunchedEffect(key) {
+                            lineBlurAnim.snapTo(initialBlur)
+                            if (initialBlur > 0f) {
+                                val blurMs = (410 * speedMult).roundToInt().coerceIn(110, 750)
                                 lineBlurAnim.animateTo(
                                     targetValue = 0f,
-                                    animationSpec = tween(durationMillis = 410, easing = FastOutSlowInEasing)
+                                    animationSpec = tween(durationMillis = blurMs, easing = FastOutSlowInEasing)
                                 )
                             }
                         }
                         LaunchedEffect(key) {
-                            lineScaleAnim.animateTo(
-                                targetValue = 1f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                    stiffness = Spring.StiffnessMediumLow
+                            lineScaleAnim.snapTo(initialScale)
+                            if (initialScale != 1f) {
+                                lineScaleAnim.animateTo(
+                                    targetValue = 1f,
+                                    animationSpec = spring(
+                                        dampingRatio = if (prefs.transitionStyle == LyricTransitionStyle.SPOTLIGHT_POP) {
+                                            Spring.DampingRatioMediumBouncy
+                                        } else {
+                                            Spring.DampingRatioNoBouncy
+                                        },
+                                        stiffness = Spring.StiffnessMediumLow / speedMult.coerceIn(0.65f, 1.5f)
+                                    )
                                 )
-                            )
+                            }
                         }
 
                         val words = activeLine?.words.orEmpty()
@@ -339,21 +418,38 @@ fun AodTwoLineLyricsView(
                                 previewMode = isPreview && !snap.isPlaying,
                                 fontFamily = fontFamily,
                                 activeColor = activeColor,
+                                useAlbumGradient = prefs.colorPreset == LyricColorPreset.ALBUM_ART,
+                                albumGradientStops = albumGradientStops,
                                 baseSizeSp = baseSizeSp,
                                 alignment = prefs.alignment,
-                                glassBlurEnabled = prefs.glassBlurEnabled,
+                                glassBlurEnabled = prefs.glassBlurEnabled && prefs.transitionStyle != LyricTransitionStyle.TYPEWRITER_SNAP,
+                                speedMultiplier = speedMult,
                                 entryBlurDp = lineBlurAnim.value,
                                 entryScale = lineScaleAnim.value,
                             )
                         } else {
+                            val lineTextStyle = if (activeBrush != null) {
+                                TextStyle(
+                                    brush = activeBrush,
+                                    fontFamily = fontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = baseSizeSp.sp,
+                                    lineHeight = (baseSizeSp * 1.26f).sp,
+                                    textAlign = textAlign,
+                                )
+                            } else {
+                                TextStyle(
+                                    color = activeColor,
+                                    fontFamily = fontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = baseSizeSp.sp,
+                                    lineHeight = (baseSizeSp * 1.26f).sp,
+                                    textAlign = textAlign,
+                                )
+                            }
                             Text(
                                 text = primaryText,
-                                color = activeColor,
-                                fontFamily = fontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = baseSizeSp.sp,
-                                lineHeight = (baseSizeSp * 1.26f).sp,
-                                textAlign = textAlign,
+                                style = lineTextStyle,
                                 maxLines = if (isCompactLandscape) 3 else 4,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier
@@ -378,14 +474,22 @@ fun AodTwoLineLyricsView(
 
                     if (!secondaryText.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(if (isPreview) 8.dp else if (isCompactLandscape) 12.dp else 18.dp))
+                        val nextTintColor = if (prefs.colorPreset == LyricColorPreset.ALBUM_ART) {
+                            albumGradientStops.last().copy(alpha = if (prefs.glassBlurEnabled) 0.42f else 0.56f)
+                        } else {
+                            LyricPast.copy(alpha = if (prefs.glassBlurEnabled) 0.44f else 0.58f)
+                        }
                         AnimatedContent(
                             targetState = secondaryText,
-                            transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(220)) },
+                            transitionSpec = {
+                                val dur = (260 * speedMult).roundToInt().coerceIn(80, 500)
+                                fadeIn(tween(dur)) togetherWith fadeOut(tween(dur))
+                            },
                             label = "aod_next_line"
                         ) { next ->
                             Text(
                                 text = next,
-                                color = LyricPast.copy(alpha = if (prefs.glassBlurEnabled) 0.44f else 0.58f),
+                                color = nextTintColor,
                                 fontFamily = fontFamily,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = (baseSizeSp * 0.70f).sp,
@@ -396,7 +500,7 @@ fun AodTwoLineLyricsView(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .then(
-                                        if (prefs.glassBlurEnabled) {
+                                        if (prefs.glassBlurEnabled && prefs.transitionStyle != LyricTransitionStyle.TYPEWRITER_SNAP) {
                                             Modifier.blur(
                                                 radius = 1.8.dp,
                                                 edgeTreatment = BlurredEdgeTreatment.Unbounded
@@ -420,24 +524,29 @@ private fun TrackIntroGlassReveal(
     artist: String,
     fontFamily: FontFamily,
     activeColor: Color,
+    activeBrush: Brush?,
     baseSizeSp: Float,
     textAlign: TextAlign,
     horizontalAlign: Alignment.Horizontal,
     glassBlurEnabled: Boolean,
+    speedMultiplier: Float,
 ) {
     val blurRadius = remember(title, artist, glassBlurEnabled) {
         Animatable(if (glassBlurEnabled) 16f else 0f)
     }
     val alphaAnim = remember(title, artist) { Animatable(0f) }
 
-    LaunchedEffect(title, artist, glassBlurEnabled) {
+    LaunchedEffect(title, artist, glassBlurEnabled, speedMultiplier) {
         alphaAnim.snapTo(0f)
-        alphaAnim.animateTo(1f, tween(340))
+        alphaAnim.animateTo(1f, tween((340 * speedMultiplier).roundToInt().coerceIn(140, 600)))
     }
-    LaunchedEffect(title, artist, glassBlurEnabled) {
+    LaunchedEffect(title, artist, glassBlurEnabled, speedMultiplier) {
         if (glassBlurEnabled) {
             blurRadius.snapTo(16f)
-            blurRadius.animateTo(0f, tween(480, easing = FastOutSlowInEasing))
+            blurRadius.animateTo(
+                0f,
+                tween((480 * speedMultiplier).roundToInt().coerceIn(180, 800), easing = FastOutSlowInEasing)
+            )
         } else {
             blurRadius.snapTo(0f)
         }
@@ -458,14 +567,28 @@ private fun TrackIntroGlassReveal(
         horizontalAlignment = horizontalAlign,
         verticalArrangement = Arrangement.Center
     ) {
+        val introTitleStyle = if (activeBrush != null) {
+            TextStyle(
+                brush = activeBrush,
+                fontFamily = fontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = (baseSizeSp * 1.04f).sp,
+                lineHeight = (baseSizeSp * 1.24f).sp,
+                textAlign = textAlign,
+            )
+        } else {
+            TextStyle(
+                color = activeColor,
+                fontFamily = fontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = (baseSizeSp * 1.04f).sp,
+                lineHeight = (baseSizeSp * 1.24f).sp,
+                textAlign = textAlign,
+            )
+        }
         Text(
             text = title,
-            color = activeColor,
-            fontFamily = fontFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = (baseSizeSp * 1.04f).sp,
-            lineHeight = (baseSizeSp * 1.24f).sp,
-            textAlign = textAlign,
+            style = introTitleStyle,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth()
@@ -496,9 +619,12 @@ private fun WordByWordLine(
     previewMode: Boolean,
     fontFamily: FontFamily,
     activeColor: Color,
+    useAlbumGradient: Boolean,
+    albumGradientStops: List<Color>,
     baseSizeSp: Float,
     alignment: LyricTextAlignment,
     glassBlurEnabled: Boolean,
+    speedMultiplier: Float,
     entryBlurDp: Float,
     entryScale: Float,
 ) {
@@ -509,6 +635,7 @@ private fun WordByWordLine(
     }
 
     val halfPoint = (words.size + 1) / 2
+    val wordAnimDurationMs = (190 * speedMultiplier).roundToInt().coerceIn(75, 360)
 
     FlowRow(
         modifier = Modifier
@@ -540,7 +667,7 @@ private fun WordByWordLine(
             val targetAlpha = if (isReached) 1f else 0.34f
             val wordAlpha by animateFloatAsState(
                 targetValue = targetAlpha,
-                animationSpec = tween(durationMillis = 190, easing = FastOutSlowInEasing),
+                animationSpec = tween(durationMillis = wordAnimDurationMs, easing = FastOutSlowInEasing),
                 label = "word_alpha"
             )
             val targetBlur = when {
@@ -550,7 +677,7 @@ private fun WordByWordLine(
             }
             val wordBlur by animateFloatAsState(
                 targetValue = targetBlur,
-                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                animationSpec = tween(durationMillis = (wordAnimDurationMs * 1.15f).roundToInt(), easing = FastOutSlowInEasing),
                 label = "word_blur"
             )
             val targetLiftScale = if (isCurrentlySinging) 1.04f else 1.0f
@@ -560,13 +687,43 @@ private fun WordByWordLine(
                 label = "word_scale"
             )
 
+            val wordBaseColor = if (useAlbumGradient && albumGradientStops.size >= 2) {
+                val fraction = if (words.size <= 1) 0f else wordIdx.toFloat() / words.lastIndex.toFloat()
+                sampleMultiStopGradient(albumGradientStops, fraction)
+            } else {
+                activeColor
+            }
+
+            val wordBrush = if (useAlbumGradient && albumGradientStops.size >= 2) {
+                val nextFraction = if (words.size <= 1) 1f else ((wordIdx + 1).coerceAtMost(words.lastIndex)).toFloat() / words.lastIndex.toFloat()
+                val endStop = sampleMultiStopGradient(albumGradientStops, nextFraction)
+                Brush.linearGradient(colors = listOf(wordBaseColor, endStop))
+            } else {
+                null
+            }
+
+            val wordTextStyle = if (wordBrush != null) {
+                TextStyle(
+                    brush = wordBrush,
+                    alpha = wordAlpha,
+                    fontFamily = fontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = baseSizeSp.sp,
+                    lineHeight = (baseSizeSp * 1.26f).sp,
+                )
+            } else {
+                TextStyle(
+                    color = wordBaseColor.copy(alpha = wordAlpha),
+                    fontFamily = fontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = baseSizeSp.sp,
+                    lineHeight = (baseSizeSp * 1.26f).sp,
+                )
+            }
+
             Text(
                 text = if (wordIdx == words.lastIndex) word.text else "${word.text} ",
-                color = activeColor.copy(alpha = wordAlpha),
-                fontFamily = fontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = baseSizeSp.sp,
-                lineHeight = (baseSizeSp * 1.26f).sp,
+                style = wordTextStyle,
                 modifier = Modifier
                     .graphicsLayer {
                         scaleX = wordScale
@@ -582,6 +739,16 @@ private fun WordByWordLine(
             )
         }
     }
+}
+
+private fun sampleMultiStopGradient(stops: List<Color>, fraction: Float): Color {
+    if (stops.isEmpty()) return Color.White
+    if (stops.size == 1) return stops[0]
+    val clamped = fraction.coerceIn(0f, 1f)
+    val scaled = clamped * (stops.size - 1)
+    val idx = scaled.toInt().coerceIn(0, stops.size - 2)
+    val localFrac = scaled - idx
+    return lerp(stops[idx], stops[idx + 1], localFrac)
 }
 
 @Composable

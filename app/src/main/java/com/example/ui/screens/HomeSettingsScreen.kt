@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,24 +20,29 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddToHomeScreen
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -55,11 +62,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -68,6 +79,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.domain.model.FontCategory
 import com.example.domain.model.KaraokeFontFamily
@@ -76,13 +88,17 @@ import com.example.domain.model.LyricColorPreset
 import com.example.domain.model.LyricDocument
 import com.example.domain.model.LyricSyncType
 import com.example.domain.model.LyricTextAlignment
+import com.example.domain.model.LyricTransitionSpeed
+import com.example.domain.model.LyricTransitionStyle
 import com.example.ui.LyricVerseUiState
 import com.example.ui.components.AodTwoLineLyricsView
 import com.example.ui.components.DemoTransportBar
 import com.example.ui.components.SyncOffsetCalibrationRow
+import com.example.ui.components.resolveAlbumLightGradient
 import com.example.ui.components.toComposeFontFamily
 import com.example.ui.theme.LyricActive
 import com.example.ui.theme.StageAmber
+import com.example.ui.theme.StageCyan
 import com.example.ui.theme.StageObsidian
 import com.example.ui.theme.StageOutline
 import com.example.ui.theme.StageSurfaceElevated
@@ -91,6 +107,17 @@ import com.example.ui.theme.SuccessMint
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.WarningAmber
 import kotlin.math.roundToInt
+
+enum class SettingsCategory(
+    val label: String,
+    val icon: ImageVector,
+    val tag: String,
+) {
+    THEME("Theme", Icons.Rounded.Palette, "category_theme"),
+    TRANSITIONS("Transitions", Icons.Rounded.AutoAwesome, "category_transitions"),
+    LOCK_AOD("Lock & AOD", Icons.Rounded.Lock, "category_lock_aod"),
+    SOURCES("Sources", Icons.Rounded.Tune, "category_sources"),
+}
 
 @Composable
 fun HomeSettingsScreen(
@@ -111,6 +138,8 @@ fun HomeSettingsScreen(
     onToggleNextLineVisible: (Boolean) -> Unit,
     onToggleWordByWord: (Boolean) -> Unit,
     onToggleGlassBlur: (Boolean) -> Unit,
+    onSelectTransitionStyle: (LyricTransitionStyle) -> Unit,
+    onSelectTransitionSpeed: (LyricTransitionSpeed) -> Unit,
     onToggleShowTrackIntro: (Boolean) -> Unit,
     onSelectLockscreenOrientation: (LockscreenOrientation) -> Unit,
     onToggleAutoShowOnLock: (Boolean) -> Unit,
@@ -135,6 +164,9 @@ fun HomeSettingsScreen(
     onClearCache: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var selectedCategory by remember { mutableStateOf(SettingsCategory.THEME) }
+    var previewTransitionNonce by remember { mutableIntStateOf(0) }
+
     if (isExpandedLayout) {
         Row(
             modifier = modifier
@@ -145,13 +177,15 @@ fun HomeSettingsScreen(
         ) {
             Column(
                 modifier = Modifier
-                    .weight(0.95f)
+                    .weight(0.92f)
                     .fillMaxHeight()
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 HeroLaunchSection(
                     uiState = uiState,
+                    previewTransitionNonce = previewTransitionNonce,
+                    onReplayTransition = { previewTransitionNonce++ },
                     onShowLyricsClick = onShowLyricsClick,
                     onPinQuickTileClick = onPinQuickTileClick,
                     onStartDemoTrack = onStartDemoTrack,
@@ -163,23 +197,22 @@ fun HomeSettingsScreen(
             }
             LazyColumn(
                 modifier = Modifier
-                    .weight(1.15f)
+                    .weight(1.18f)
                     .fillMaxHeight(),
                 contentPadding = PaddingValues(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    LockScreenAodBehaviorSection(
-                        uiState = uiState,
-                        onToggleAutoShowOnLock = onToggleAutoShowOnLock,
-                        onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
-                        onSelectLockscreenOrientation = onSelectLockscreenOrientation,
-                        onOpenOverlaySettings = onOpenOverlaySettings,
+                    CategorySelectorBar(
+                        selected = selectedCategory,
+                        onSelect = { selectedCategory = it }
                     )
                 }
                 item {
-                    ThemeDesignSection(
+                    CategorySettingsBody(
+                        selectedCategory = selectedCategory,
                         uiState = uiState,
+                        onPreviewTransition = { previewTransitionNonce++ },
                         onSelectFontFamily = onSelectFontFamily,
                         onFontSizeChange = onFontSizeChange,
                         onSelectColorPreset = onSelectColorPreset,
@@ -187,27 +220,23 @@ fun HomeSettingsScreen(
                         onToggleNextLineVisible = onToggleNextLineVisible,
                         onToggleWordByWord = onToggleWordByWord,
                         onToggleGlassBlur = onToggleGlassBlur,
+                        onSelectTransitionStyle = onSelectTransitionStyle,
+                        onSelectTransitionSpeed = onSelectTransitionSpeed,
                         onToggleShowTrackIntro = onToggleShowTrackIntro,
+                        onSelectLockscreenOrientation = onSelectLockscreenOrientation,
+                        onToggleAutoShowOnLock = onToggleAutoShowOnLock,
+                        onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
                         onTogglePixelShift = onTogglePixelShift,
                         onToggleKeepScreenOn = onToggleKeepScreenOn,
                         onToggleDynamicColor = onToggleDynamicColor,
                         onToggleHaptics = onToggleHaptics,
-                    )
-                }
-                item {
-                    SyncAndSearchSection(
-                        uiState = uiState,
                         onNudgeOffset = onNudgeOffset,
                         onResetOffset = onResetOffset,
                         onQueryChange = onQueryChange,
                         onSearchSubmit = onSearchSubmit,
                         onLoadManualDocument = onLoadManualDocument,
-                    )
-                }
-                item {
-                    PermissionsSourcesSection(
-                        uiState = uiState,
                         onOpenListenerSettings = onOpenListenerSettings,
+                        onOpenOverlaySettings = onOpenOverlaySettings,
                         onRequestPostNotifications = onRequestPostNotifications,
                         onOpenBatterySettings = onOpenBatterySettings,
                         onToggleTracking = onToggleTracking,
@@ -226,11 +255,13 @@ fun HomeSettingsScreen(
                 .fillMaxSize()
                 .testTag("home_settings_screen"),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
                 HeroLaunchSection(
                     uiState = uiState,
+                    previewTransitionNonce = previewTransitionNonce,
+                    onReplayTransition = { previewTransitionNonce++ },
                     onShowLyricsClick = onShowLyricsClick,
                     onPinQuickTileClick = onPinQuickTileClick,
                     onStartDemoTrack = onStartDemoTrack,
@@ -241,17 +272,16 @@ fun HomeSettingsScreen(
                 )
             }
             item {
-                LockScreenAodBehaviorSection(
-                    uiState = uiState,
-                    onToggleAutoShowOnLock = onToggleAutoShowOnLock,
-                    onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
-                    onSelectLockscreenOrientation = onSelectLockscreenOrientation,
-                    onOpenOverlaySettings = onOpenOverlaySettings,
+                CategorySelectorBar(
+                    selected = selectedCategory,
+                    onSelect = { selectedCategory = it }
                 )
             }
             item {
-                ThemeDesignSection(
+                CategorySettingsBody(
+                    selectedCategory = selectedCategory,
                     uiState = uiState,
+                    onPreviewTransition = { previewTransitionNonce++ },
                     onSelectFontFamily = onSelectFontFamily,
                     onFontSizeChange = onFontSizeChange,
                     onSelectColorPreset = onSelectColorPreset,
@@ -259,27 +289,23 @@ fun HomeSettingsScreen(
                     onToggleNextLineVisible = onToggleNextLineVisible,
                     onToggleWordByWord = onToggleWordByWord,
                     onToggleGlassBlur = onToggleGlassBlur,
+                    onSelectTransitionStyle = onSelectTransitionStyle,
+                    onSelectTransitionSpeed = onSelectTransitionSpeed,
                     onToggleShowTrackIntro = onToggleShowTrackIntro,
+                    onSelectLockscreenOrientation = onSelectLockscreenOrientation,
+                    onToggleAutoShowOnLock = onToggleAutoShowOnLock,
+                    onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
                     onTogglePixelShift = onTogglePixelShift,
                     onToggleKeepScreenOn = onToggleKeepScreenOn,
                     onToggleDynamicColor = onToggleDynamicColor,
                     onToggleHaptics = onToggleHaptics,
-                )
-            }
-            item {
-                SyncAndSearchSection(
-                    uiState = uiState,
                     onNudgeOffset = onNudgeOffset,
                     onResetOffset = onResetOffset,
                     onQueryChange = onQueryChange,
                     onSearchSubmit = onSearchSubmit,
                     onLoadManualDocument = onLoadManualDocument,
-                )
-            }
-            item {
-                PermissionsSourcesSection(
-                    uiState = uiState,
                     onOpenListenerSettings = onOpenListenerSettings,
+                    onOpenOverlaySettings = onOpenOverlaySettings,
                     onRequestPostNotifications = onRequestPostNotifications,
                     onOpenBatterySettings = onOpenBatterySettings,
                     onToggleTracking = onToggleTracking,
@@ -296,8 +322,135 @@ fun HomeSettingsScreen(
 }
 
 @Composable
+private fun CategorySelectorBar(
+    selected: SettingsCategory,
+    onSelect: (SettingsCategory) -> Unit,
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        items(SettingsCategory.entries) { category ->
+            val isSelected = selected == category
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSelect(category) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = category.icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                },
+                label = {
+                    Text(
+                        text = category.label,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                },
+                modifier = Modifier.testTag(category.tag)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CategorySettingsBody(
+    selectedCategory: SettingsCategory,
+    uiState: LyricVerseUiState,
+    onPreviewTransition: () -> Unit,
+    onSelectFontFamily: (KaraokeFontFamily) -> Unit,
+    onFontSizeChange: (Float) -> Unit,
+    onSelectColorPreset: (LyricColorPreset) -> Unit,
+    onSelectAlignment: (LyricTextAlignment) -> Unit,
+    onToggleNextLineVisible: (Boolean) -> Unit,
+    onToggleWordByWord: (Boolean) -> Unit,
+    onToggleGlassBlur: (Boolean) -> Unit,
+    onSelectTransitionStyle: (LyricTransitionStyle) -> Unit,
+    onSelectTransitionSpeed: (LyricTransitionSpeed) -> Unit,
+    onToggleShowTrackIntro: (Boolean) -> Unit,
+    onSelectLockscreenOrientation: (LockscreenOrientation) -> Unit,
+    onToggleAutoShowOnLock: (Boolean) -> Unit,
+    onToggleWakeScreenOnLock: (Boolean) -> Unit,
+    onTogglePixelShift: (Boolean) -> Unit,
+    onToggleKeepScreenOn: (Boolean) -> Unit,
+    onToggleDynamicColor: (Boolean) -> Unit,
+    onToggleHaptics: (Boolean) -> Unit,
+    onNudgeOffset: (Long) -> Unit,
+    onResetOffset: () -> Unit,
+    onQueryChange: (String) -> Unit,
+    onSearchSubmit: () -> Unit,
+    onLoadManualDocument: (LyricDocument) -> Unit,
+    onOpenListenerSettings: () -> Unit,
+    onOpenOverlaySettings: () -> Unit,
+    onRequestPostNotifications: () -> Unit,
+    onOpenBatterySettings: () -> Unit,
+    onToggleTracking: (Boolean) -> Unit,
+    onToggleLockScreenNotif: (Boolean) -> Unit,
+    onToggleOnlineLookup: (Boolean) -> Unit,
+    onToggleOfflineCache: (Boolean) -> Unit,
+    onClearCache: () -> Unit,
+    onSimulateMissingMetadata: () -> Unit,
+) {
+    when (selectedCategory) {
+        SettingsCategory.THEME -> ThemeDesignCategoryCard(
+            uiState = uiState,
+            onSelectFontFamily = onSelectFontFamily,
+            onFontSizeChange = onFontSizeChange,
+            onSelectColorPreset = onSelectColorPreset,
+            onSelectAlignment = onSelectAlignment,
+            onToggleDynamicColor = onToggleDynamicColor,
+        )
+        SettingsCategory.TRANSITIONS -> TransitionsEffectsCategoryCard(
+            uiState = uiState,
+            onSelectTransitionStyle = { style ->
+                onSelectTransitionStyle(style)
+                onPreviewTransition()
+            },
+            onSelectTransitionSpeed = { speed ->
+                onSelectTransitionSpeed(speed)
+                onPreviewTransition()
+            },
+            onToggleWordByWord = onToggleWordByWord,
+            onToggleGlassBlur = onToggleGlassBlur,
+            onToggleShowTrackIntro = onToggleShowTrackIntro,
+            onToggleNextLineVisible = onToggleNextLineVisible,
+            onNudgeOffset = onNudgeOffset,
+            onResetOffset = onResetOffset,
+        )
+        SettingsCategory.LOCK_AOD -> LockScreenAodCategoryCard(
+            uiState = uiState,
+            onToggleAutoShowOnLock = onToggleAutoShowOnLock,
+            onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
+            onSelectLockscreenOrientation = onSelectLockscreenOrientation,
+            onOpenOverlaySettings = onOpenOverlaySettings,
+            onTogglePixelShift = onTogglePixelShift,
+            onToggleKeepScreenOn = onToggleKeepScreenOn,
+            onToggleHaptics = onToggleHaptics,
+        )
+        SettingsCategory.SOURCES -> SourcesPermissionsCategoryCard(
+            uiState = uiState,
+            onQueryChange = onQueryChange,
+            onSearchSubmit = onSearchSubmit,
+            onLoadManualDocument = onLoadManualDocument,
+            onOpenListenerSettings = onOpenListenerSettings,
+            onRequestPostNotifications = onRequestPostNotifications,
+            onOpenBatterySettings = onOpenBatterySettings,
+            onToggleTracking = onToggleTracking,
+            onToggleLockScreenNotif = onToggleLockScreenNotif,
+            onToggleOnlineLookup = onToggleOnlineLookup,
+            onToggleOfflineCache = onToggleOfflineCache,
+            onClearCache = onClearCache,
+            onSimulateMissingMetadata = onSimulateMissingMetadata,
+        )
+    }
+}
+
+@Composable
 private fun HeroLaunchSection(
     uiState: LyricVerseUiState,
+    previewTransitionNonce: Int,
+    onReplayTransition: () -> Unit,
     onShowLyricsClick: () -> Unit,
     onPinQuickTileClick: () -> Unit,
     onStartDemoTrack: (Int) -> Unit,
@@ -376,28 +529,36 @@ private fun HeroLaunchSection(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 26.dp),
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     AodTwoLineLyricsView(
                         state = sync,
                         isPreview = true,
-                        introTriggerNonce = previewIntroNonce
+                        introTriggerNonce = previewIntroNonce,
+                        transitionReplayNonce = previewTransitionNonce,
                     )
                 }
-                if (snap.hasValidMetadata && prefs.showTrackIntroOnStart) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(end = 10.dp, bottom = 4.dp),
-                        horizontalArrangement = Arrangement.End
-                    ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onReplayTransition) {
+                        Text(
+                            text = "Preview Effect",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextMuted
+                        )
+                    }
+                    if (snap.hasValidMetadata && prefs.showTrackIntroOnStart) {
                         TextButton(
                             onClick = { previewIntroNonce++ },
                             modifier = Modifier.testTag("preview_intro_button")
                         ) {
                             Text(
-                                text = "Preview Title Intro",
+                                text = "Title Intro",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = TextMuted
                             )
@@ -477,14 +638,15 @@ private fun HeroLaunchSection(
                     onClick = { onStartDemoTrack(index) },
                     label = {
                         Text(
-                            "${track.title} (${if (track.syncedLrc != null) "Synced" else "Plain"})"
+                            "${track.title} (${if (track.syncedLrc != null) "Synced" else "Plain"})",
+                            style = MaterialTheme.typography.labelMedium
                         )
                     },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Rounded.PlayArrow,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                     },
                     modifier = Modifier.testTag("demo_chip_$index")
@@ -509,18 +671,314 @@ private fun HeroLaunchSection(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun LockScreenAodBehaviorSection(
+private fun ThemeDesignCategoryCard(
+    uiState: LyricVerseUiState,
+    onSelectFontFamily: (KaraokeFontFamily) -> Unit,
+    onFontSizeChange: (Float) -> Unit,
+    onSelectColorPreset: (LyricColorPreset) -> Unit,
+    onSelectAlignment: (LyricTextAlignment) -> Unit,
+    onToggleDynamicColor: (Boolean) -> Unit,
+) {
+    val prefs = uiState.syncState.preferences
+    val snap = uiState.syncState.snapshot
+    val haptics = LocalHapticFeedback.current
+    var activeFontCategory by remember(prefs.fontFamily) { mutableStateOf(prefs.fontFamily.category) }
+    val fontsForCategory = remember(activeFontCategory) {
+        KaraokeFontFamily.entries.filter { it.category == activeFontCategory }
+    }
+    val albumColors = remember(snap.albumLightColors, snap.trackSignatureKey) {
+        resolveAlbumLightGradient(snap)
+    }
+
+    SettingsCard(title = "Theme & Typography") {
+        // Compact Font Header + 2-Category Segmented Toggle
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Font Style",
+                style = MaterialTheme.typography.labelLarge,
+                color = LyricActive
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FontCategory.entries.forEach { category ->
+                    val selected = activeFontCategory == category
+                    Surface(
+                        color = if (selected) MaterialTheme.colorScheme.primaryContainer else StageObsidian,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .border(
+                                width = 1.dp,
+                                color = if (selected) MaterialTheme.colorScheme.primary else StageOutline,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .clickable { activeFontCategory = category }
+                            .testTag("font_cat_${category.name.lowercase()}")
+                    ) {
+                        Text(
+                            text = category.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else TextMuted,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Compact single-row scrollable pill selector
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(fontsForCategory) { family ->
+                val selected = prefs.fontFamily == family
+                Surface(
+                    color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else StageObsidian,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .height(34.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(
+                            width = if (selected) 1.5.dp else 1.dp,
+                            color = if (selected) MaterialTheme.colorScheme.primary else StageOutline,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .clickable {
+                            if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelectFontFamily(family)
+                        }
+                        .testTag("font_${family.name.lowercase()}")
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    ) {
+                        Text(
+                            text = family.label,
+                            fontFamily = family.toComposeFontFamily(),
+                            fontSize = 13.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (selected) LyricActive else TextMuted,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(2.dp))
+
+        // Color & Album Light Gradient Selector
+        Text(
+            text = "Lyric Color & Album Gradient",
+            style = MaterialTheme.typography.labelLarge,
+            color = LyricActive
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            LyricColorPreset.entries.forEach { preset ->
+                FilterChip(
+                    selected = prefs.colorPreset == preset,
+                    onClick = {
+                        if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelectColorPreset(preset)
+                    },
+                    leadingIcon = {
+                        val swatchModifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                        when (preset) {
+                            LyricColorPreset.ALBUM_ART -> Box(
+                                modifier = swatchModifier.background(Brush.linearGradient(albumColors))
+                            )
+                            LyricColorPreset.STAGE_WHITE -> Box(modifier = swatchModifier.background(Color.White))
+                            LyricColorPreset.ELECTRIC_VIOLET -> Box(modifier = swatchModifier.background(StageViolet))
+                            LyricColorPreset.WARM_AMBER -> Box(modifier = swatchModifier.background(StageAmber))
+                            LyricColorPreset.STAGE_CYAN -> Box(modifier = swatchModifier.background(StageCyan))
+                            LyricColorPreset.DYNAMIC_PRIMARY -> Box(
+                                modifier = swatchModifier.background(MaterialTheme.colorScheme.primary)
+                            )
+                        }
+                    },
+                    label = { Text(preset.label, style = MaterialTheme.typography.labelMedium) },
+                    modifier = Modifier.testTag("color_${preset.name.lowercase()}")
+                )
+            }
+        }
+
+        Text(
+            text = "Lyric Size: ${prefs.fontSizeSp.roundToInt()} sp",
+            style = MaterialTheme.typography.labelLarge,
+            color = LyricActive
+        )
+        Slider(
+            value = prefs.fontSizeSp,
+            onValueChange = onFontSizeChange,
+            valueRange = 20f..42f
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Alignment",
+                style = MaterialTheme.typography.labelLarge,
+                color = LyricActive
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                LyricTextAlignment.entries.forEach { align ->
+                    FilterChip(
+                        selected = prefs.alignment == align,
+                        onClick = {
+                            if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelectAlignment(align)
+                        },
+                        label = { Text(align.label, style = MaterialTheme.typography.labelSmall) }
+                    )
+                }
+            }
+        }
+
+        SettingsSwitchRow(
+            title = "Dynamic Material You Accents",
+            subtitle = "Tints settings controls with system wallpaper accents on Android 12+",
+            checked = prefs.useDynamicColor,
+            onCheckedChange = onToggleDynamicColor,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TransitionsEffectsCategoryCard(
+    uiState: LyricVerseUiState,
+    onSelectTransitionStyle: (LyricTransitionStyle) -> Unit,
+    onSelectTransitionSpeed: (LyricTransitionSpeed) -> Unit,
+    onToggleWordByWord: (Boolean) -> Unit,
+    onToggleGlassBlur: (Boolean) -> Unit,
+    onToggleShowTrackIntro: (Boolean) -> Unit,
+    onToggleNextLineVisible: (Boolean) -> Unit,
+    onNudgeOffset: (Long) -> Unit,
+    onResetOffset: () -> Unit,
+) {
+    val prefs = uiState.syncState.preferences
+    val haptics = LocalHapticFeedback.current
+
+    SettingsCard(title = "Transitions, Effects & Sync") {
+        Text(
+            text = "Lyric Transition Style",
+            style = MaterialTheme.typography.labelLarge,
+            color = LyricActive
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            LyricTransitionStyle.entries.forEach { style ->
+                FilterChip(
+                    selected = prefs.transitionStyle == style,
+                    onClick = {
+                        if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelectTransitionStyle(style)
+                    },
+                    label = { Text(style.label, style = MaterialTheme.typography.labelMedium) },
+                    modifier = Modifier.testTag("transition_${style.name.lowercase()}")
+                )
+            }
+        }
+        Text(
+            text = prefs.transitionStyle.description,
+            style = MaterialTheme.typography.bodySmall,
+            color = TextMuted
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Transition Pace",
+                style = MaterialTheme.typography.labelLarge,
+                color = LyricActive
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                LyricTransitionSpeed.entries.forEach { speed ->
+                    FilterChip(
+                        selected = prefs.transitionSpeed == speed,
+                        onClick = {
+                            if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelectTransitionSpeed(speed)
+                        },
+                        label = { Text(speed.label, style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.testTag("speed_${speed.name.lowercase()}")
+                    )
+                }
+            }
+        }
+
+        SettingsSwitchRow(
+            title = "Word-by-Word Lyrics Reveal",
+            subtitle = "Paces each word smoothly with the song (enhanced LRC tags or syllable cadence)",
+            checked = prefs.wordByWordEnabled,
+            onCheckedChange = onToggleWordByWord,
+            testTag = "word_by_word_switch"
+        )
+        SettingsSwitchRow(
+            title = "Apple-Style Glass Blur",
+            subtitle = "Briefly blurs incoming lines and upcoming words before snapping crisp (Android 12+)",
+            checked = prefs.glassBlurEnabled,
+            onCheckedChange = onToggleGlassBlur,
+            testTag = "glass_blur_switch"
+        )
+        SettingsSwitchRow(
+            title = "Song Title & Artist Intro",
+            subtitle = "Briefly shows track title and artist when a new song starts, then reveals lyrics",
+            checked = prefs.showTrackIntroOnStart,
+            onCheckedChange = onToggleShowTrackIntro,
+            testTag = "track_intro_switch"
+        )
+        SettingsSwitchRow(
+            title = "Show Upcoming Next Line",
+            subtitle = "Displays dimmed next line below active line on pure #000000",
+            checked = prefs.nextLineVisible,
+            onCheckedChange = onToggleNextLineVisible,
+        )
+
+        SyncOffsetCalibrationRow(
+            offsetMs = prefs.syncOffsetMs,
+            hapticsEnabled = prefs.hapticsEnabled,
+            onNudge = onNudgeOffset,
+            onReset = onResetOffset
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LockScreenAodCategoryCard(
     uiState: LyricVerseUiState,
     onToggleAutoShowOnLock: (Boolean) -> Unit,
     onToggleWakeScreenOnLock: (Boolean) -> Unit,
     onSelectLockscreenOrientation: (LockscreenOrientation) -> Unit,
     onOpenOverlaySettings: () -> Unit,
+    onTogglePixelShift: (Boolean) -> Unit,
+    onToggleKeepScreenOn: (Boolean) -> Unit,
+    onToggleHaptics: (Boolean) -> Unit,
 ) {
     val prefs = uiState.syncState.preferences
     val perms = uiState.permissions
     val haptics = LocalHapticFeedback.current
 
-    SettingsCard(title = "Lock-Screen Auto AOD & Orientation") {
+    SettingsCard(title = "Lock-Screen AOD & Panel Protection") {
         SettingsSwitchRow(
             title = "Auto-Show on Lock Screen",
             subtitle = "Automatically opens AMOLED lyrics when you play a song and lock the device",
@@ -576,139 +1034,7 @@ private fun LockScreenAodBehaviorSection(
                 )
             }
         }
-    }
-}
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ThemeDesignSection(
-    uiState: LyricVerseUiState,
-    onSelectFontFamily: (KaraokeFontFamily) -> Unit,
-    onFontSizeChange: (Float) -> Unit,
-    onSelectColorPreset: (LyricColorPreset) -> Unit,
-    onSelectAlignment: (LyricTextAlignment) -> Unit,
-    onToggleNextLineVisible: (Boolean) -> Unit,
-    onToggleWordByWord: (Boolean) -> Unit,
-    onToggleGlassBlur: (Boolean) -> Unit,
-    onToggleShowTrackIntro: (Boolean) -> Unit,
-    onTogglePixelShift: (Boolean) -> Unit,
-    onToggleKeepScreenOn: (Boolean) -> Unit,
-    onToggleDynamicColor: (Boolean) -> Unit,
-    onToggleHaptics: (Boolean) -> Unit,
-) {
-    val prefs = uiState.syncState.preferences
-    val haptics = LocalHapticFeedback.current
-
-    SettingsCard(title = "Fonts, Effects & AMOLED Design") {
-        FontCategory.entries.forEach { category ->
-            val fontsInCategory = KaraokeFontFamily.entries.filter { it.category == category }
-            Text(
-                text = category.label,
-                style = MaterialTheme.typography.labelLarge,
-                color = LyricActive
-            )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                fontsInCategory.forEach { family ->
-                    FilterChip(
-                        selected = prefs.fontFamily == family,
-                        onClick = {
-                            if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onSelectFontFamily(family)
-                        },
-                        label = {
-                            Text(
-                                text = family.label,
-                                fontFamily = family.toComposeFontFamily()
-                            )
-                        },
-                        modifier = Modifier.testTag("font_${family.name.lowercase()}")
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-        }
-
-        Text(
-            text = "Lyric Size: ${prefs.fontSizeSp.roundToInt()} sp",
-            style = MaterialTheme.typography.labelLarge,
-            color = LyricActive
-        )
-        Slider(
-            value = prefs.fontSizeSp,
-            onValueChange = onFontSizeChange,
-            valueRange = 20f..42f
-        )
-
-        Text(
-            text = "Active Lyric Color",
-            style = MaterialTheme.typography.labelLarge,
-            color = LyricActive
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            LyricColorPreset.entries.forEach { preset ->
-                FilterChip(
-                    selected = prefs.colorPreset == preset,
-                    onClick = {
-                        if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSelectColorPreset(preset)
-                    },
-                    label = { Text(preset.label) }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = "Alignment",
-            style = MaterialTheme.typography.labelLarge,
-            color = LyricActive
-        )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LyricTextAlignment.entries.forEach { align ->
-                FilterChip(
-                    selected = prefs.alignment == align,
-                    onClick = {
-                        if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSelectAlignment(align)
-                    },
-                    label = { Text(align.label) }
-                )
-            }
-        }
-
-        SettingsSwitchRow(
-            title = "Word-by-Word Lyrics Reveal",
-            subtitle = "Paces each word smoothly with the song (enhanced LRC tags or syllable cadence)",
-            checked = prefs.wordByWordEnabled,
-            onCheckedChange = onToggleWordByWord,
-            testTag = "word_by_word_switch"
-        )
-        SettingsSwitchRow(
-            title = "Apple-Style Glass Blur Transition",
-            subtitle = "Briefly blurs incoming lines and upcoming words before snapping crisp (Android 12+)",
-            checked = prefs.glassBlurEnabled,
-            onCheckedChange = onToggleGlassBlur,
-            testTag = "glass_blur_switch"
-        )
-        SettingsSwitchRow(
-            title = "Song Title & Artist Intro",
-            subtitle = "Briefly shows track title and artist when a new song starts, then reveals lyrics",
-            checked = prefs.showTrackIntroOnStart,
-            onCheckedChange = onToggleShowTrackIntro,
-            testTag = "track_intro_switch"
-        )
-        SettingsSwitchRow(
-            title = "Show Upcoming Next Line",
-            subtitle = "Displays active + dimmed next line centered on #000000",
-            checked = prefs.nextLineVisible,
-            onCheckedChange = onToggleNextLineVisible,
-        )
         SettingsSwitchRow(
             title = "OLED Burn-In Pixel Shift",
             subtitle = "Gently drifts lyrics every 20s to protect AMOLED panels",
@@ -723,12 +1049,6 @@ private fun ThemeDesignSection(
             onCheckedChange = onToggleKeepScreenOn,
         )
         SettingsSwitchRow(
-            title = "Dynamic Material You Accents",
-            subtitle = "Tints settings controls with system wallpaper accents on Android 12+",
-            checked = prefs.useDynamicColor,
-            onCheckedChange = onToggleDynamicColor,
-        )
-        SettingsSwitchRow(
             title = "Restrained Haptics",
             subtitle = "Subtle tactile confirmation on Show Lyrics and design adjustments",
             checked = prefs.hapticsEnabled,
@@ -739,99 +1059,11 @@ private fun ThemeDesignSection(
 }
 
 @Composable
-private fun SyncAndSearchSection(
+private fun SourcesPermissionsCategoryCard(
     uiState: LyricVerseUiState,
-    onNudgeOffset: (Long) -> Unit,
-    onResetOffset: () -> Unit,
     onQueryChange: (String) -> Unit,
     onSearchSubmit: () -> Unit,
     onLoadManualDocument: (LyricDocument) -> Unit,
-) {
-    val prefs = uiState.syncState.preferences
-    val library = uiState.searchLibrary
-
-    SettingsCard(title = "Timing & Manual Track Lookup") {
-        SyncOffsetCalibrationRow(
-            offsetMs = prefs.syncOffsetMs,
-            hapticsEnabled = prefs.hapticsEnabled,
-            onNudge = onNudgeOffset,
-            onReset = onResetOffset
-        )
-
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = library.query,
-                onValueChange = onQueryChange,
-                label = { Text("Search song or artist") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { onSearchSubmit() }),
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("search_input")
-            )
-            Button(
-                onClick = onSearchSubmit,
-                modifier = Modifier
-                    .height(54.dp)
-                    .testTag("search_button")
-            ) {
-                Icon(Icons.Rounded.Search, contentDescription = "Search lyrics")
-            }
-        }
-
-        if (library.isSearching) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-            }
-        }
-
-        library.results.take(4).forEach { doc ->
-            Surface(
-                color = StageObsidian.copy(alpha = 0.78f),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = doc.trackTitle,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = LyricActive,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "${doc.artistName} · ${if (doc.syncType == LyricSyncType.SYNCED) "Synced LRC" else "Plain"}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    OutlinedButton(onClick = { onLoadManualDocument(doc) }) {
-                        Text("Load")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PermissionsSourcesSection(
-    uiState: LyricVerseUiState,
     onOpenListenerSettings: () -> Unit,
     onRequestPostNotifications: () -> Unit,
     onOpenBatterySettings: () -> Unit,
@@ -845,133 +1077,206 @@ private fun PermissionsSourcesSection(
     val perms = uiState.permissions
     val prefs = uiState.syncState.preferences
     val diag = uiState.diagnostics
+    val library = uiState.searchLibrary
 
-    SettingsCard(title = "Music Access, Cache & Lock-Screen Rules") {
-        SettingsSwitchRow(
-            title = "Track Compatible Music Apps",
-            subtitle = "Reads active MediaSession metadata without altering or capturing audio",
-            checked = prefs.trackingEnabled,
-            onCheckedChange = onToggleTracking,
-            testTag = "tracking_switch"
-        )
-
-        PermissionRow(
-            title = "Notification Listener Access",
-            subtitle = "Required to detect songs in Spotify, Apple Music, or local players. Revoke anytime in Settings.",
-            granted = perms.notificationListenerGranted,
-            buttonLabel = if (perms.notificationListenerGranted) "Manage" else "Grant Access",
-            testTag = "grant_listener_button",
-            onClick = onOpenListenerSettings,
-        )
-
-        SettingsSwitchRow(
-            title = "Minimal Lock-Screen Notification",
-            subtitle = "Optional ongoing notification showing active lyric lines on supported lock screens",
-            checked = prefs.lockScreenNotificationEnabled,
-            onCheckedChange = onToggleLockScreenNotif,
-            testTag = "lock_notif_switch"
-        )
-
-        if (!perms.postNotificationsGranted) {
-            PermissionRow(
-                title = "Post Notifications (Android 13+)",
-                subtitle = "Needed for the ongoing Lock-Screen Companion notification and Auto-Show status.",
-                granted = false,
-                buttonLabel = "Allow",
-                testTag = "grant_notifications_button",
-                onClick = onRequestPostNotifications,
-            )
-        }
-
-        SettingsSwitchRow(
-            title = "LRCLIB Online Lookup",
-            subtitle = "Sends only track title, artist, album & duration (no account or audio)",
-            checked = prefs.onlineLookupEnabled,
-            onCheckedChange = onToggleOnlineLookup,
-            testTag = "online_lookup_switch"
-        )
-
-        SettingsSwitchRow(
-            title = "Permitted Offline Lyrics Cache",
-            subtitle = "Caches matches locally for 14 days (3 days for misses) when allowed",
-            checked = prefs.offlineCacheEnabled,
-            onCheckedChange = onToggleOfflineCache,
-            testTag = "offline_cache_switch"
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedButton(
-                onClick = onClearCache,
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("clear_cache_button")
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SettingsCard(title = "Manual Track Lookup") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Clear Cache (${uiState.searchLibrary.cachedEntries.size})")
-            }
-
-            OutlinedButton(
-                onClick = onOpenBatterySettings,
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("battery_settings_button")
-            ) {
-                Icon(Icons.Rounded.BatteryChargingFull, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Battery")
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Sessions: ${diag.activeSessionsCount} · ${diag.selectedAppLabel ?: "None"}",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextMuted
-            )
-            OutlinedButton(
-                onClick = onSimulateMissingMetadata,
-                modifier = Modifier.testTag("simulate_missing_metadata_button")
-            ) {
-                Text("Test Missing Metadata")
-            }
-        }
-
-        Surface(
-            color = StageObsidian.copy(alpha = 0.8f),
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Lock, contentDescription = null, tint = StageViolet, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "About Lock-Screen & System AOD",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = LyricActive
-                    )
+                OutlinedTextField(
+                    value = library.query,
+                    onValueChange = onQueryChange,
+                    label = { Text("Search song or artist") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { onSearchSubmit() }),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("search_input")
+                )
+                Button(
+                    onClick = onSearchSubmit,
+                    modifier = Modifier
+                        .height(54.dp)
+                        .testTag("search_button")
+                ) {
+                    Icon(Icons.Rounded.Search, contentDescription = "Search lyrics")
                 }
+            }
+
+            if (library.isSearching) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                }
+            }
+
+            library.results.take(4).forEach { doc ->
+                Surface(
+                    color = StageObsidian.copy(alpha = 0.78f),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = doc.trackTitle,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = LyricActive,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "${doc.artistName} · ${if (doc.syncType == LyricSyncType.SYNCED) "Synced LRC" else "Plain"}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        OutlinedButton(onClick = { onLoadManualDocument(doc) }) {
+                            Text("Load")
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingsCard(title = "Music Access, Cache & Rules") {
+            SettingsSwitchRow(
+                title = "Track Compatible Music Apps",
+                subtitle = "Reads active MediaSession metadata & album colors without altering audio",
+                checked = prefs.trackingEnabled,
+                onCheckedChange = onToggleTracking,
+                testTag = "tracking_switch"
+            )
+
+            PermissionRow(
+                title = "Notification Listener Access",
+                subtitle = "Required to detect songs in Spotify, Apple Music, or local players. Revoke anytime in Settings.",
+                granted = perms.notificationListenerGranted,
+                buttonLabel = if (perms.notificationListenerGranted) "Manage" else "Grant Access",
+                testTag = "grant_listener_button",
+                onClick = onOpenListenerSettings,
+            )
+
+            SettingsSwitchRow(
+                title = "Minimal Lock-Screen Notification",
+                subtitle = "Optional ongoing notification showing active lyric lines on supported lock screens",
+                checked = prefs.lockScreenNotificationEnabled,
+                onCheckedChange = onToggleLockScreenNotif,
+                testTag = "lock_notif_switch"
+            )
+
+            if (!perms.postNotificationsGranted) {
+                PermissionRow(
+                    title = "Post Notifications (Android 13+)",
+                    subtitle = "Needed for the ongoing Lock-Screen Companion notification and Auto-Show status.",
+                    granted = false,
+                    buttonLabel = "Allow",
+                    testTag = "grant_notifications_button",
+                    onClick = onRequestPostNotifications,
+                )
+            }
+
+            SettingsSwitchRow(
+                title = "LRCLIB Online Lookup",
+                subtitle = "Sends only track title, artist, album & duration (no account or audio)",
+                checked = prefs.onlineLookupEnabled,
+                onCheckedChange = onToggleOnlineLookup,
+                testTag = "online_lookup_switch"
+            )
+
+            SettingsSwitchRow(
+                title = "Permitted Offline Lyrics Cache",
+                subtitle = "Caches matches locally for 14 days (3 days for misses) when allowed",
+                checked = prefs.offlineCacheEnabled,
+                onCheckedChange = onToggleOfflineCache,
+                testTag = "offline_cache_switch"
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onClearCache,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("clear_cache_button")
+                ) {
+                    Icon(Icons.Rounded.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Clear Cache (${uiState.searchLibrary.cachedEntries.size})")
+                }
+
+                OutlinedButton(
+                    onClick = onOpenBatterySettings,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("battery_settings_button")
+                ) {
+                    Icon(Icons.Rounded.BatteryChargingFull, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Battery")
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = "Android reserves the OEM hardware Doze AOD exclusively for SystemUI and blocks floating windows over the keyguard. When 'Auto-Show on Lock Screen' is enabled, LyricVerse listens for screen-lock events during active playback and launches its pure #000000 AMOLED lyrics screen on top of the lock screen without bypassing your unlock security.",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "Sessions: ${diag.activeSessionsCount} · ${diag.selectedAppLabel ?: "None"}",
+                    style = MaterialTheme.typography.labelSmall,
                     color = TextMuted
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.DirectionsCar, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
+                OutlinedButton(
+                    onClick = onSimulateMissingMetadata,
+                    modifier = Modifier.testTag("simulate_missing_metadata_button")
+                ) {
+                    Text("Test Missing Metadata")
+                }
+            }
+
+            Surface(
+                color = StageObsidian.copy(alpha = 0.8f),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Lock, contentDescription = null, tint = StageViolet, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "About Lock-Screen & System AOD",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = LyricActive
+                        )
+                    }
                     Text(
-                        text = "Android Auto head units are excluded for driver safety; playback continues undisturbed.",
+                        text = "Android reserves the OEM hardware Doze AOD exclusively for SystemUI and blocks floating windows over the keyguard. When 'Auto-Show on Lock Screen' is enabled, LyricVerse listens for screen-lock events during active playback and launches its pure #000000 AMOLED lyrics screen on top of the lock screen without bypassing your unlock security.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted
                     )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.DirectionsCar, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Android Auto head units are excluded for driver safety; playback continues undisturbed.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextMuted
+                        )
+                    }
                 }
             }
         }

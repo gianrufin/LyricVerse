@@ -93,6 +93,8 @@ fun LyricVerseApp(viewModel: LyricVerseViewModel) {
                     onToggleNextLineVisible = viewModel::updateNextLineVisible,
                     onToggleWordByWord = viewModel::updateWordByWordEnabled,
                     onToggleGlassBlur = viewModel::updateGlassBlurEnabled,
+                    onSelectTransitionStyle = viewModel::updateTransitionStyle,
+                    onSelectTransitionSpeed = viewModel::updateTransitionSpeed,
                     onToggleShowTrackIntro = viewModel::updateShowTrackIntroOnStart,
                     onSelectLockscreenOrientation = viewModel::updateLockscreenOrientation,
                     onToggleAutoShowOnLock = viewModel::updateAutoShowOnLockEnabled,

@@ -3,10 +3,13 @@ package com.example.media
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import android.net.Uri
 import android.os.SystemClock
 import android.provider.Settings
 import com.example.domain.model.PlaybackSessionStatus
@@ -29,6 +32,8 @@ class MediaSessionTracker(private val context: Context) {
 
     private var activeController: MediaController? = null
     private var sessionListenerRegistered: Boolean = false
+    private var lastArtSignature: String? = null
+    private var cachedAlbumLightColors: List<Long> = emptyList()
 
     private val _externalSnapshot = MutableStateFlow(
         PlaybackSnapshot(status = initialStatus())
@@ -186,6 +191,11 @@ class MediaSessionTracker(private val context: Context) {
             else -> PlaybackSessionStatus.ACTIVE_EXTERNAL
         }
 
+        val lightColors = resolveAlbumLightColors(
+            metadata = metadata,
+            signature = "${artist.trim().lowercase()}|${title.trim().lowercase()}|${album.trim().lowercase()}"
+        )
+
         _externalSnapshot.value = PlaybackSnapshot(
             status = status,
             sourcePackage = controller.packageName,
@@ -199,7 +209,47 @@ class MediaSessionTracker(private val context: Context) {
             isPlaying = playing,
             lastPositionUpdateElapsedMs = updateElapsed,
             isDemoMode = false,
+            albumLightColors = lightColors,
         )
+    }
+
+    private fun resolveAlbumLightColors(metadata: MediaMetadata?, signature: String): List<Long> {
+        val artBitmap = metadata?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+            ?: metadata?.getBitmap(MediaMetadata.METADATA_KEY_ART)
+            ?: metadata?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+        val artUriStr = metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI)
+            ?: metadata?.getString(MediaMetadata.METADATA_KEY_ART_URI)
+            ?: ""
+
+        val cacheKey = "$signature|${artBitmap?.generationId ?: 0}|$artUriStr"
+        if (cacheKey == lastArtSignature && cachedAlbumLightColors.isNotEmpty()) {
+            return cachedAlbumLightColors
+        }
+
+        val extracted = when {
+            artBitmap != null -> AlbumArtColorExtractor.extractLightGradientColors(artBitmap)
+            artUriStr.startsWith("content://") || artUriStr.startsWith("android.resource://") -> {
+                decodeLocalArtThumbnail(artUriStr)?.let { thumb ->
+                    AlbumArtColorExtractor.extractLightGradientColors(thumb).also {
+                        thumb.recycle()
+                    }
+                } ?: AlbumArtColorExtractor.fallbackGradientForSignature(signature)
+            }
+            else -> AlbumArtColorExtractor.fallbackGradientForSignature(signature)
+        }
+        lastArtSignature = cacheKey
+        cachedAlbumLightColors = extracted
+        return extracted
+    }
+
+    private fun decodeLocalArtThumbnail(uriString: String): Bitmap? {
+        return runCatching {
+            val uri = Uri.parse(uriString)
+            val opts = BitmapFactory.Options().apply { inSampleSize = 8 }
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, opts)
+            }
+        }.getOrNull()
     }
 
     private fun detachActiveController() {

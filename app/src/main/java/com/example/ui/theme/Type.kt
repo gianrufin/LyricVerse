@@ -8,6 +8,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.R
 
+// Stage Clean Fonts (6)
 val PlusJakartaSansFamily = FontFamily(
     Font(R.font.plus_jakarta_sans, FontWeight.Normal),
     Font(R.font.plus_jakarta_sans, FontWeight.Medium),
@@ -28,12 +29,24 @@ val SpaceGroteskFamily = FontFamily(
     Font(R.font.space_grotesk, FontWeight.Bold),
 )
 
+val SoraFontFamily = FontFamily(
+    Font(R.font.sora, FontWeight.Normal),
+    Font(R.font.sora, FontWeight.Medium),
+    Font(R.font.sora, FontWeight.Bold),
+)
+
+val DmSansFontFamily = FontFamily(
+    Font(R.font.dm_sans, FontWeight.Normal),
+    Font(R.font.dm_sans, FontWeight.Medium),
+    Font(R.font.dm_sans, FontWeight.Bold),
+)
+
 val JetBrainsMonoFamily = FontFamily(
     Font(R.font.jetbrains_mono, FontWeight.Normal),
     Font(R.font.jetbrains_mono, FontWeight.Medium),
 )
 
-// Premium Editorial Fonts
+// Premium Editorial Fonts (6)
 val InstrumentSerifFamily = FontFamily(
     Font(R.font.instrument_serif, FontWeight.Normal),
     Font(R.font.instrument_serif, FontWeight.Bold),
@@ -56,27 +69,15 @@ val SyneFontFamily = FontFamily(
     Font(R.font.syne, FontWeight.Bold),
 )
 
-// Fun & Expressive Fonts
-val FredokaFontFamily = FontFamily(
-    Font(R.font.fredoka, FontWeight.Normal),
-    Font(R.font.fredoka, FontWeight.Medium),
-    Font(R.font.fredoka, FontWeight.Bold),
+val FrauncesFontFamily = FontFamily(
+    Font(R.font.fraunces, FontWeight.Normal),
+    Font(R.font.fraunces, FontWeight.Medium),
+    Font(R.font.fraunces, FontWeight.Bold),
 )
 
-val BricolageGrotesqueFamily = FontFamily(
-    Font(R.font.bricolage_grotesque, FontWeight.Normal),
-    Font(R.font.bricolage_grotesque, FontWeight.Medium),
-    Font(R.font.bricolage_grotesque, FontWeight.Bold),
-)
-
-val PacificoFontFamily = FontFamily(
-    Font(R.font.pacifico, FontWeight.Normal),
-    Font(R.font.pacifico, FontWeight.Bold),
-)
-
-val CaveatFontFamily = FontFamily(
-    Font(R.font.caveat, FontWeight.Normal),
-    Font(R.font.caveat, FontWeight.Bold),
+val CinzelFontFamily = FontFamily(
+    Font(R.font.cinzel, FontWeight.Normal),
+    Font(R.font.cinzel, FontWeight.Bold),
 )
 
 val LyricVerseTypography = Typography(
