@@ -40,7 +40,25 @@ data class CompanionSyncState(
     val preferences: KaraokeStylePreferences = KaraokeStylePreferences(),
     val overlayVisible: Boolean = false,
     val companionServiceRunning: Boolean = false,
-)
+) {
+    /**
+     * True only when displayable lyric text (synced lines or non-empty plain lines) is loaded.
+     * Excludes Loading, Unavailable (e.g., podcasts, YouTube vlogs), Idle, Instrumental, and None
+     * so the full-screen AMOLED lock screen remains completely blank (#000000) to prevent burn-in.
+     */
+    val hasDisplayableLyrics: Boolean
+        get() {
+            val doc = (lyricsState as? LyricsStageState.Loaded)?.document ?: return false
+            return when (doc.syncType) {
+                LyricSyncType.SYNCED -> doc.lines.isNotEmpty()
+                LyricSyncType.PLAIN -> doc.plainText.lineSequence().any { raw ->
+                    val trimmed = raw.trim()
+                    trimmed.isNotEmpty() && !trimmed.startsWith("[")
+                }
+                LyricSyncType.INSTRUMENTAL, LyricSyncType.NONE -> false
+            }
+        }
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LyricSyncCoordinator(

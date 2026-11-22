@@ -26,8 +26,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Optional foreground companion for:
@@ -51,24 +53,29 @@ class OverlayCompanionService : Service() {
                     val state = coordinator.syncState.value
                     val prefs = state.preferences
                     if (!prefs.autoShowOnLockEnabled) return
-                    val hasPlayableLyrics = state.snapshot.isPlaying &&
-                        (state.snapshot.hasValidMetadata || state.lyricsState is LyricsStageState.Loaded)
-                    if (!hasPlayableLyrics) return
+                    if (!state.snapshot.isPlaying) return
+                    if (!state.hasDisplayableLyrics && state.lyricsState !is LyricsStageState.Loading) return
                     if (coordinator.isAodActivityForeground || coordinator.dismissedAodOnCurrentLock) return
 
                     delayedLockLaunchJob?.cancel()
                     delayedLockLaunchJob = serviceScope.launch {
                         // Brief settle delay so Android completes keyguard lock transition cleanly
                         delay(380L)
+                        // If lookup just started for a newly played item, wait briefly for LRCLIB result
+                        // so podcasts/vlogs returning 404 do not wake the screen.
+                        if (coordinator.syncState.value.lyricsState is LyricsStageState.Loading) {
+                            withTimeoutOrNull(1400L) {
+                                coordinator.syncState.first { it.lyricsState !is LyricsStageState.Loading }
+                            }
+                        }
                         val latest = coordinator.syncState.value
                         val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-                        val stillPlaying = latest.snapshot.isPlaying &&
-                            (latest.snapshot.hasValidMetadata || latest.lyricsState is LyricsStageState.Loaded)
-                        if (stillPlaying &&
+                        val canLaunch = latest.snapshot.isPlaying &&
+                            latest.hasDisplayableLyrics &&
                             latest.preferences.autoShowOnLockEnabled &&
                             !coordinator.isAodActivityForeground &&
                             !coordinator.dismissedAodOnCurrentLock
-                        ) {
+                        if (canLaunch) {
                             val launchIntent = Intent(this@OverlayCompanionService, AodLyricsActivity::class.java).apply {
                                 addFlags(
                                     Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -161,6 +168,7 @@ class OverlayCompanionService : Service() {
                     CompanionNotifKey(
                         trackKey = state.snapshot.trackSignatureKey,
                         lineIndex = state.activeLineIndex,
+                        hasDisplayableLyrics = state.hasDisplayableLyrics,
                         lockNotifEnabled = state.preferences.lockScreenNotificationEnabled,
                         autoLockEnabled = state.preferences.autoShowOnLockEnabled,
                     )
@@ -266,6 +274,7 @@ class OverlayCompanionService : Service() {
     private data class CompanionNotifKey(
         val trackKey: String,
         val lineIndex: Int,
+        val hasDisplayableLyrics: Boolean,
         val lockNotifEnabled: Boolean,
         val autoLockEnabled: Boolean,
     )

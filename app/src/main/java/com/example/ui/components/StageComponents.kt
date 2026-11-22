@@ -15,6 +15,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -210,15 +211,22 @@ fun AodTwoLineLyricsView(
         }
     }
 
-    // Track title + artist intro gate (brief ~2.4s display when a song starts or AOD opens)
+    // Track title + artist intro gate (only triggers when displayable lyrics exist; never flashes for vlogs/podcasts)
     val trackTitle = snap.trackTitle.ifBlank { doc?.trackTitle.orEmpty() }
     val artistName = snap.artistName.ifBlank { doc?.artistName.orEmpty() }
     val trackIdentityKey = if (trackTitle.isNotBlank()) "$trackTitle|$artistName" else ""
     var showingIntro by remember { mutableStateOf(false) }
 
-    LaunchedEffect(trackIdentityKey, prefs.showTrackIntroOnStart, isPreview, introTriggerNonce) {
+    LaunchedEffect(
+        trackIdentityKey,
+        state.hasDisplayableLyrics,
+        prefs.showTrackIntroOnStart,
+        isPreview,
+        introTriggerNonce
+    ) {
         val canShowIntro = prefs.showTrackIntroOnStart &&
             trackIdentityKey.isNotBlank() &&
+            state.hasDisplayableLyrics &&
             (!isPreview || introTriggerNonce > 0)
         if (canShowIntro) {
             showingIntro = true
@@ -227,6 +235,17 @@ fun AodTwoLineLyricsView(
         } else {
             showingIntro = false
         }
+    }
+
+    // Pure #000000 silent blank canvas on the full-screen AMOLED view whenever no lyrics are displayable
+    // (covers Lyrics Unavailable, YouTube vlogs, podcasts, Loading, Idle, Instrumental, and missing metadata).
+    if (!isPreview && !state.hasDisplayableLyrics) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .testTag("aod_blank_state")
+        )
+        return
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {

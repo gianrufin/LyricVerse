@@ -552,7 +552,7 @@ private fun HeroLaunchSection(
                             color = TextMuted
                         )
                     }
-                    if (snap.hasValidMetadata && prefs.showTrackIntroOnStart) {
+                    if (snap.hasValidMetadata && sync.hasDisplayableLyrics && prefs.showTrackIntroOnStart) {
                         TextButton(
                             onClick = { previewIntroNonce++ },
                             modifier = Modifier.testTag("preview_intro_button")
@@ -981,7 +981,7 @@ private fun LockScreenAodCategoryCard(
     SettingsCard(title = "Lock-Screen AOD & Panel Protection") {
         SettingsSwitchRow(
             title = "Auto-Show on Lock Screen",
-            subtitle = "Automatically opens AMOLED lyrics when you play a song and lock the device",
+            subtitle = "Opens AMOLED lyrics when locked during a song; stays off for podcasts, vlogs, or unavailable lyrics",
             checked = prefs.autoShowOnLockEnabled,
             onCheckedChange = onToggleAutoShowOnLock,
             testTag = "auto_show_lock_switch"

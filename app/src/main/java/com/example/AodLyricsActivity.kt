@@ -72,7 +72,9 @@ class AodLyricsActivity : ComponentActivity() {
         setContent {
             val state by container.syncCoordinator.syncState.collectAsStateWithLifecycle()
             val prefs = state.preferences
-            val shouldKeepScreenOn = prefs.keepScreenOnWhilePlaying && state.snapshot.isPlaying
+            val shouldKeepScreenOn = prefs.keepScreenOnWhilePlaying &&
+                state.snapshot.isPlaying &&
+                state.hasDisplayableLyrics
 
             LaunchedEffect(prefs.lockscreenOrientation) {
                 requestedOrientation = when (prefs.lockscreenOrientation) {
