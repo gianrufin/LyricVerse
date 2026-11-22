@@ -1,27 +1,22 @@
 package com.example.ui.components
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -43,21 +38,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -67,15 +54,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.domain.model.KaraokeFontFamily
-import com.example.domain.model.KaraokeStylePreferences
 import com.example.domain.model.LyricColorPreset
-import com.example.domain.model.LyricLine
+import com.example.domain.model.LyricSyncType
 import com.example.domain.model.LyricTextAlignment
-import com.example.domain.model.StageBackgroundStyle
+import com.example.domain.model.PlaybackSessionStatus
+import com.example.media.CompanionSyncState
+import com.example.media.LyricsStageState
 import com.example.ui.theme.JetBrainsMonoFamily
 import com.example.ui.theme.LyricActive
 import com.example.ui.theme.LyricPast
-import com.example.ui.theme.LyricUpcoming
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.theme.PlayfairDisplayFamily
 import com.example.ui.theme.PlusJakartaSansFamily
@@ -101,166 +88,133 @@ fun LyricTextAlignment.toComposeTextAlign(): TextAlign = when (this) {
 
 @Composable
 fun LyricColorPreset.resolveActiveColor(): Color = when (this) {
-    LyricColorPreset.STAGE_WHITE -> LyricActive
+    LyricColorPreset.STAGE_WHITE -> Color.White
     LyricColorPreset.ELECTRIC_VIOLET -> StageViolet
     LyricColorPreset.WARM_AMBER -> StageAmber
     LyricColorPreset.STAGE_CYAN -> StageCyan
     LyricColorPreset.DYNAMIC_PRIMARY -> MaterialTheme.colorScheme.primary
 }
 
+/**
+ * Ultra-minimal 2-line centered karaoke presentation for pure #000000 AMOLED & live preview.
+ * Renders ONLY the lyrics (or minimal honest fallback phrase) with zero chrome or extra labels.
+ */
 @Composable
-fun StageAtmosphereBackdrop(
-    backgroundStyle: StageBackgroundStyle,
+fun AodTwoLineLyricsView(
+    state: CompanionSyncState,
     modifier: Modifier = Modifier,
+    isPreview: Boolean = false,
 ) {
-    val primaryGlow = MaterialTheme.colorScheme.primary
-    val secondaryGlow = MaterialTheme.colorScheme.secondary
+    val prefs = state.preferences
+    val fontFamily = prefs.fontFamily.toComposeFontFamily()
+    val textAlign = prefs.alignment.toComposeTextAlign()
+    val activeColor = prefs.colorPreset.resolveActiveColor()
+    val baseSizeSp = if (isPreview) (prefs.fontSizeSp * 0.72f).coerceIn(16f, 26f) else prefs.fontSizeSp
 
-    Box(modifier = modifier.background(StageObsidian)) {
-        if (backgroundStyle == StageBackgroundStyle.CONCERT_SPOTLIGHT) {
-            Image(
-                painter = painterResource(id = R.drawable.img_concert_stage_art),
-                contentDescription = stringResource(id = R.string.cd_stage_artwork),
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .alpha(0.24f)
-            )
+    val doc = (state.lyricsState as? LyricsStageState.Loaded)?.document
+    val lines = doc?.lines.orEmpty()
+    val idx = state.activeLineIndex
+
+    val (primaryText, secondaryText) = when (val lyrics = state.lyricsState) {
+        is LyricsStageState.Loading -> "…" to null
+        is LyricsStageState.Unavailable -> "Lyrics unavailable" to null
+        is LyricsStageState.Loaded -> when (doc?.syncType) {
+            LyricSyncType.SYNCED -> {
+                val active = when {
+                    idx in lines.indices -> lines[idx].text
+                    lines.isNotEmpty() -> lines.first().text
+                    else -> "♪"
+                }
+                val next = if (prefs.nextLineVisible && idx >= 0 && (idx + 1) in lines.indices) {
+                    lines[idx + 1].text
+                } else if (prefs.nextLineVisible && idx < 0 && lines.size > 1) {
+                    lines[1].text
+                } else {
+                    null
+                }
+                active to next
+            }
+            LyricSyncType.PLAIN -> {
+                val nonBlank = doc.plainText.lineSequence()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() && !it.startsWith("[") }
+                    .toList()
+                val first = nonBlank.getOrNull(0) ?: "Plain lyrics only"
+                val second = if (prefs.nextLineVisible) nonBlank.getOrNull(1) else null
+                first to second
+            }
+            LyricSyncType.INSTRUMENTAL -> "♪" to null
+            else -> "No lyrics" to null
         }
-
-        val gradientBrush = when (backgroundStyle) {
-            StageBackgroundStyle.CONCERT_SPOTLIGHT -> Brush.verticalGradient(
-                listOf(
-                    StageViolet.copy(alpha = 0.22f),
-                    StageObsidian.copy(alpha = 0.86f),
-                    StageObsidian
-                )
-            )
-            StageBackgroundStyle.DYNAMIC_OBSIDIAN -> Brush.verticalGradient(
-                listOf(
-                    primaryGlow.copy(alpha = 0.24f),
-                    secondaryGlow.copy(alpha = 0.10f),
-                    StageObsidian
-                )
-            )
-            StageBackgroundStyle.DEEP_VELVET -> Brush.verticalGradient(
-                listOf(
-                    Color(0xFF28133E).copy(alpha = 0.72f),
-                    Color(0xFF120B1F).copy(alpha = 0.94f),
-                    StageObsidian
-                )
-            )
-            StageBackgroundStyle.PURE_STAGE_BLACK -> Brush.verticalGradient(
-                listOf(StageObsidian, StageObsidian)
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(gradientBrush)
-        )
-    }
-}
-
-@Composable
-fun KaraokeSyncedLyricList(
-    lines: List<LyricLine>,
-    activeLineIndex: Int,
-    preferences: KaraokeStylePreferences,
-    isDemoMode: Boolean,
-    onLineTapped: (LyricLine) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val listState = rememberLazyListState()
-    val haptics = LocalHapticFeedback.current
-    val fontFamily = preferences.fontFamily.toComposeFontFamily()
-    val textAlign = preferences.alignment.toComposeTextAlign()
-    val activeBaseColor = preferences.colorPreset.resolveActiveColor()
-
-    LaunchedEffect(activeLineIndex) {
-        if (activeLineIndex >= 0 && activeLineIndex < lines.size) {
-            val target = (activeLineIndex - 1).coerceAtLeast(0)
-            listState.animateScrollToItem(index = target)
+        is LyricsStageState.Idle -> when (state.snapshot.status) {
+            PlaybackSessionStatus.NO_PERMISSION -> "Notification access needed" to null
+            PlaybackSessionStatus.METADATA_MISSING -> "No track metadata" to null
+            PlaybackSessionStatus.SESSION_ENDED -> "Playback ended" to null
+            else -> if (isPreview) {
+                "Turning quiet shadows into stage light" to
+                    if (prefs.nextLineVisible) "Heartbeats locking on a golden wave" else null
+            } else {
+                "Waiting for music…" to null
+            }
         }
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+    val horizontalAlign = when (prefs.alignment) {
+        LyricTextAlignment.CENTER -> Alignment.CenterHorizontally
+        LyricTextAlignment.START -> Alignment.Start
+        LyricTextAlignment.END -> Alignment.End
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = horizontalAlign,
+        verticalArrangement = Arrangement.Center
     ) {
-        itemsIndexed(
-            items = lines,
-            key = { idx, line -> "${idx}_${line.timestampMs}" }
-        ) { index, line ->
-            val isActive = index == activeLineIndex
-            val isPast = activeLineIndex >= 0 && index < activeLineIndex
-
-            val scale by animateFloatAsState(
-                targetValue = if (isActive) 1.04f else 0.96f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                ),
-                label = "lyric_line_scale"
+        AnimatedContent(
+            targetState = primaryText,
+            transitionSpec = {
+                (fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
+                    slideInVertically { it / 5 }) togetherWith
+                    (fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) +
+                        slideOutVertically { -it / 5 })
+            },
+            label = "aod_active_line"
+        ) { line ->
+            Text(
+                text = line,
+                color = activeColor,
+                fontFamily = fontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = baseSizeSp.sp,
+                lineHeight = (baseSizeSp * 1.28f).sp,
+                textAlign = textAlign,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth()
             )
-            val lineAlpha by animateFloatAsState(
-                targetValue = when {
-                    isActive -> 1.0f
-                    isPast -> 0.36f
-                    else -> 0.62f
-                } * preferences.stageOpacity,
-                label = "lyric_line_alpha"
-            )
-            val lineColor by animateColorAsState(
-                targetValue = when {
-                    isActive -> activeBaseColor
-                    isPast -> LyricPast
-                    else -> LyricUpcoming
-                },
-                label = "lyric_line_color"
-            )
+        }
 
-            val originX = when (preferences.alignment) {
-                LyricTextAlignment.START -> 0f
-                LyricTextAlignment.CENTER -> 0.5f
-                LyricTextAlignment.END -> 1f
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable(enabled = isDemoMode) {
-                        if (preferences.hapticsEnabled) {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        }
-                        onLineTapped(line)
-                    }
-                    .padding(vertical = 6.dp, horizontal = 8.dp)
-            ) {
+        if (!secondaryText.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(if (isPreview) 8.dp else 18.dp))
+            AnimatedContent(
+                targetState = secondaryText,
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                label = "aod_next_line"
+            ) { next ->
                 Text(
-                    text = line.text,
-                    color = lineColor,
+                    text = next,
+                    color = LyricPast.copy(alpha = 0.62f),
                     fontFamily = fontFamily,
-                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
-                    fontSize = preferences.fontSizeSp.sp,
-                    lineHeight = (preferences.fontSizeSp * 1.32f).sp,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = (baseSizeSp * 0.72f).sp,
+                    lineHeight = (baseSizeSp * 0.96f).sp,
                     textAlign = textAlign,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                            alpha = lineAlpha
-                            transformOrigin = TransformOrigin(originX, 0.5f)
-                        }
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
-        item { Spacer(modifier = Modifier.height(72.dp)) }
     }
 }
 
@@ -275,9 +229,8 @@ fun SyncOffsetCalibrationRow(
     val haptics = LocalHapticFeedback.current
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = StageSurfaceElevated.copy(alpha = 0.85f),
-        shape = RoundedCornerShape(18.dp),
-        tonalElevation = 2.dp
+        color = StageObsidian.copy(alpha = 0.75f),
+        shape = RoundedCornerShape(16.dp),
     ) {
         Row(
             modifier = Modifier
@@ -301,7 +254,7 @@ fun SyncOffsetCalibrationRow(
                         color = LyricActive
                     )
                     Text(
-                        text = if (offsetMs == 0L) "0 ms (exact)" else "${if (offsetMs > 0) "+" else ""}$offsetMs ms",
+                        text = if (offsetMs == 0L) "0 ms" else "${if (offsetMs > 0) "+" else ""}$offsetMs ms",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextMuted
                     )
@@ -321,9 +274,7 @@ fun SyncOffsetCalibrationRow(
                     Icon(Icons.Rounded.Remove, contentDescription = "Delay lyrics by 100ms")
                 }
                 if (offsetMs != 0L) {
-                    TextButton(onClick = onReset) {
-                        Text("Reset")
-                    }
+                    TextButton(onClick = onReset) { Text("Reset") }
                 }
                 FilledTonalIconButton(
                     onClick = {
@@ -356,11 +307,10 @@ fun DemoTransportBar(
     val haptics = LocalHapticFeedback.current
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = StageSurfaceElevated.copy(alpha = 0.92f),
-        shape = RoundedCornerShape(24.dp),
-        tonalElevation = 4.dp
+        color = StageSurfaceElevated,
+        shape = RoundedCornerShape(20.dp),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
             val maxDuration = durationMs.coerceAtLeast(1000L).toFloat()
             Slider(
                 value = positionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)).toFloat(),
@@ -388,7 +338,7 @@ fun DemoTransportBar(
                 )
 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     FilledTonalIconButton(
@@ -416,14 +366,13 @@ fun DemoTransportBar(
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         modifier = Modifier
-                            .size(54.dp)
+                            .size(50.dp)
                             .clip(CircleShape)
                             .testTag("demo_play_button")
                     ) {
                         Icon(
                             imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                             contentDescription = stringResource(R.string.cd_play_pause_demo),
-                            modifier = Modifier.size(28.dp)
                         )
                     }
 

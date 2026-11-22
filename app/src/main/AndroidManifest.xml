@@ -1,18 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Network access for LRCLIB lyrics lookup (install-time normal permissions) -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Optional floating lyrics overlay over other apps (explicit user grant in Settings) -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
-    <!-- Required for ongoing companion notification & best-effort lock-screen lyric line on API 33+ -->
+    <!-- Optional minimal lock-screen notification on Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Foreground service for user-enabled floating overlay & active session tracking -->
+    <!-- Optional foreground service strictly when user enables Lock-Screen Lyric Notification -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
@@ -27,6 +23,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LyricVerse">
 
+        <!-- Opens directly to Settings, Theme, Design & Access -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -37,7 +34,19 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
         </activity>
+
+        <!-- Minimal pure #000000 AMOLED lyrics display; safe to show over lock screen -->
+        <activity
+            android:name=".AodLyricsActivity"
+            android:exported="true"
+            android:label="@string/qs_tile_label"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.LyricVerse.Aod" />
 
         <service
             android:name=".media.LyricNotificationListenerService"
@@ -50,12 +59,26 @@
         </service>
 
         <service
+            android:name=".media.AodLyricsTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notif_lyric"
+            android:label="@string/qs_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TILE_CATEGORY"
+                android:value="android.service.quicksettings.CATEGORY_DISPLAY" />
+        </service>
+
+        <service
             android:name=".media.OverlayCompanionService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-activated floating synchronized lyrics overlay and media-session companion notification without audio capture or playback control." />
+                android:value="User-activated minimal lock-screen lyric notification companion without audio capture or playback control." />
         </service>
 
     </application>

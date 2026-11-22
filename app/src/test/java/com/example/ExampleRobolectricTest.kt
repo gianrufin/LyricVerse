@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -26,76 +27,60 @@ class ExampleRobolectricTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun `app name and manifest permissions are configured properly`() {
+    fun `manifest declares AodLyricsActivity, AodLyricsTileService, and minimal permissions`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         assertEquals("LyricVerse", context.getString(R.string.app_name))
 
         val packageInfo = context.packageManager.getPackageInfo(
             context.packageName,
-            PackageManager.GET_PERMISSIONS or PackageManager.GET_SERVICES
+            PackageManager.GET_PERMISSIONS or PackageManager.GET_SERVICES or PackageManager.GET_ACTIVITIES
         )
         val permissions = packageInfo.requestedPermissions?.toSet().orEmpty()
         assertTrue(permissions.contains(android.Manifest.permission.INTERNET))
-        assertTrue(permissions.contains(android.Manifest.permission.SYSTEM_ALERT_WINDOW))
+        assertFalse(permissions.contains(android.Manifest.permission.SYSTEM_ALERT_WINDOW))
         assertTrue(permissions.contains(android.Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE))
 
-        val overlayService = packageInfo.services?.firstOrNull {
+        val tileService = packageInfo.services?.firstOrNull {
+            it.name.endsWith("AodLyricsTileService")
+        }
+        assertTrue(tileService != null)
+        assertEquals(android.Manifest.permission.BIND_QUICK_SETTINGS_TILE, tileService?.permission)
+
+        val aodActivity = packageInfo.activities?.firstOrNull {
+            it.name.endsWith("AodLyricsActivity")
+        }
+        assertTrue(aodActivity != null)
+
+        val companionService = packageInfo.services?.firstOrNull {
             it.name.endsWith("OverlayCompanionService")
         }
-        assertTrue(overlayService != null)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && overlayService != null) {
+        assertTrue(companionService != null)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && companionService != null) {
             assertEquals(
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-                overlayService.foregroundServiceType
+                companionService.foregroundServiceType
             )
         }
     }
 
     @Test
-    fun `cuj_demo_karaoke_and_plain_fallback_render_honestly`() {
+    fun `cuj_opens_directly_to_settings_with_show_lyrics_cta_and_demo_preview`() {
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("stage_screen").assertIsDisplayed()
+        composeRule.onNodeWithTag("home_settings_screen").assertIsDisplayed()
+        composeRule.onNodeWithTag("show_lyrics_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("pin_qs_tile_button").assertIsDisplayed()
 
-        // Start synced demo track
+        // Start synced demo track and verify preview updates
         composeRule.onNodeWithTag("demo_chip_0").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("TIME-SYNCED LRC").assertIsDisplayed()
         composeRule.onNodeWithTag("demo_play_button").assertIsDisplayed()
-
-        // Switch to plain-lyrics-only demo track and verify honest label
-        composeRule.onNodeWithTag("demo_chip_2").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText("PLAIN LYRICS (UN-SYNCED)").assertIsDisplayed()
     }
 
     @Test
-    fun `cuj_overlay_permission_denial_shows_rationale_dialog`() {
+    fun `cuj_missing_metadata_simulation_updates_minimal_preview`() {
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("overlay_toggle_button").performClick()
-        composeRule.waitForIdle()
-
-        composeRule.onNodeWithText("Allow Floating Lyrics Overlay?").assertIsDisplayed()
-        composeRule.onNodeWithTag("overlay_rationale_dismiss").performClick()
-        composeRule.waitForIdle()
-    }
-
-    @Test
-    fun `cuj_missing_metadata_simulation_and_navigation_tabs`() {
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("nav_access").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("permissions_screen").assertIsDisplayed()
-
         composeRule.onNodeWithTag("simulate_missing_metadata_button").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Track Metadata Missing").assertIsDisplayed()
-
-        composeRule.onNodeWithTag("nav_style").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("style_studio_screen").assertIsDisplayed()
-
-        composeRule.onNodeWithTag("nav_library").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("library_screen").assertIsDisplayed()
+        composeRule.onNodeWithText("No track metadata").assertIsDisplayed()
     }
 }

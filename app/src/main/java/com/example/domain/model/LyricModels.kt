@@ -49,47 +49,33 @@ enum class KaraokeFontFamily(val label: String) {
     JETBRAINS_MONO("JetBrains Mono"),
 }
 
-enum class StageBackgroundStyle(val label: String) {
-    CONCERT_SPOTLIGHT("Concert Spotlight"),
-    DYNAMIC_OBSIDIAN("Dynamic M3"),
-    DEEP_VELVET("Velvet Plum"),
-    PURE_STAGE_BLACK("Pure Obsidian"),
-}
-
 enum class LyricTextAlignment(val label: String) {
+    CENTER("Centered"),
     START("Left"),
-    CENTER("Center"),
     END("Right"),
 }
 
 enum class LyricColorPreset(val label: String) {
-    STAGE_WHITE("Stage White"),
+    STAGE_WHITE("Pure White"),
     ELECTRIC_VIOLET("Electric Violet"),
     WARM_AMBER("Stage Amber"),
     STAGE_CYAN("Neon Cyan"),
     DYNAMIC_PRIMARY("M3 Accent"),
 }
 
-enum class OverlayDefaultMode(val label: String) {
-    TWO_LINE_PILL("2-Line Pill"),
-    APPLE_STYLE_CARD("Expanded Card"),
-}
-
 data class KaraokeStylePreferences(
     val fontFamily: KaraokeFontFamily = KaraokeFontFamily.PLUS_JAKARTA_SANS,
-    val fontSizeSp: Float = 26f,
+    val fontSizeSp: Float = 28f,
     val colorPreset: LyricColorPreset = LyricColorPreset.STAGE_WHITE,
-    val backgroundStyle: StageBackgroundStyle = StageBackgroundStyle.CONCERT_SPOTLIGHT,
-    val alignment: LyricTextAlignment = LyricTextAlignment.START,
-    val stageOpacity: Float = 1.0f,
-    val overlayOpacity: Float = 0.90f,
-    val overlayDefaultMode: OverlayDefaultMode = OverlayDefaultMode.TWO_LINE_PILL,
-    val overlayWidthScale: Float = 1.0f,
+    val alignment: LyricTextAlignment = LyricTextAlignment.CENTER,
+    val nextLineVisible: Boolean = true,
+    val oledPixelShiftEnabled: Boolean = true,
+    val keepScreenOnWhilePlaying: Boolean = true,
     val useDynamicColor: Boolean = true,
     val syncOffsetMs: Long = 0L,
     val hapticsEnabled: Boolean = true,
     val trackingEnabled: Boolean = true,
     val onlineLookupEnabled: Boolean = true,
     val offlineCacheEnabled: Boolean = true,
-    val lockScreenNotificationEnabled: Boolean = true,
+    val lockScreenNotificationEnabled: Boolean = false,
 )

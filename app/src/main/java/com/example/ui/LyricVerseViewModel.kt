@@ -1,8 +1,11 @@
 package com.example.ui
 
 import android.app.Application
+import android.app.StatusBarManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
@@ -13,17 +16,16 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.LyricVerseApplication
+import com.example.R
 import com.example.data.local.LyricsCacheEntity
 import com.example.data.local.PreferencesDataStore
 import com.example.data.lyrics.LyricsRepository
 import com.example.domain.model.DemoTrack
 import com.example.domain.model.KaraokeFontFamily
-import com.example.domain.model.KaraokeStylePreferences
 import com.example.domain.model.LyricColorPreset
 import com.example.domain.model.LyricDocument
 import com.example.domain.model.LyricTextAlignment
-import com.example.domain.model.OverlayDefaultMode
-import com.example.domain.model.StageBackgroundStyle
+import com.example.media.AodLyricsTileService
 import com.example.media.CompanionSyncState
 import com.example.media.LyricSyncCoordinator
 import com.example.media.MediaSessionDiagnostics
@@ -38,7 +40,6 @@ import kotlinx.coroutines.launch
 
 data class PermissionStatusSnapshot(
     val notificationListenerGranted: Boolean = false,
-    val overlayPermissionGranted: Boolean = false,
     val postNotificationsGranted: Boolean = true,
     val ignoringBatteryOptimizations: Boolean = false,
 )
@@ -57,7 +58,6 @@ data class LyricVerseUiState(
     val permissions: PermissionStatusSnapshot = PermissionStatusSnapshot(),
     val searchLibrary: SearchLibraryUiState = SearchLibraryUiState(),
     val demoCatalog: List<DemoTrack> = emptyList(),
-    val showOverlayRationaleDialog: Boolean = false,
     val statusBannerMessage: String? = null,
 )
 
@@ -74,7 +74,6 @@ class LyricVerseViewModel(
     private val _isSearching = MutableStateFlow(false)
     private val _searchResults = MutableStateFlow<List<LyricDocument>>(emptyList())
     private val _hasSearched = MutableStateFlow(false)
-    private val _showOverlayRationale = MutableStateFlow(false)
     private val _statusBanner = MutableStateFlow<String?>(null)
 
     private val searchLibraryFlow = combine(
@@ -98,19 +97,16 @@ class LyricVerseViewModel(
         syncCoordinator.diagnosticSnapshot,
         _permissions,
         searchLibraryFlow,
-        _showOverlayRationale,
-    ) { sync, diag, perms, search, showRationale ->
+        _statusBanner,
+    ) { sync, diag, perms, search, banner ->
         LyricVerseUiState(
             syncState = sync,
             diagnostics = diag,
             permissions = perms,
             searchLibrary = search,
             demoCatalog = syncCoordinator.demoController.tracks,
-            showOverlayRationaleDialog = showRationale,
-            statusBannerMessage = _statusBanner.value,
+            statusBannerMessage = banner,
         )
-    }.combine(_statusBanner) { state, banner ->
-        state.copy(statusBannerMessage = banner)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -134,7 +130,7 @@ class LyricVerseViewModel(
         }
     }
 
-    // Demo stage controls
+    // Demo playback controls
     fun startDemoTrack(index: Int = 0) {
         syncCoordinator.demoController.startDemo(trackIndex = index, autoPlay = true)
     }
@@ -159,11 +155,7 @@ class LyricVerseViewModel(
         syncCoordinator.demoController.simulateMissingMetadata()
     }
 
-    fun stopDemo() {
-        syncCoordinator.demoController.stopDemo()
-    }
-
-    // Sync calibration & lookup actions
+    // Sync calibration & lookup
     fun nudgeSyncOffset(deltaMs: Long) {
         viewModelScope.launch {
             preferencesDataStore.update { prefs ->
@@ -182,25 +174,72 @@ class LyricVerseViewModel(
         syncCoordinator.retryLyricsLookup()
     }
 
-    // Floating overlay & companion foreground service
-    fun toggleFloatingOverlay() {
+    // Quick Settings Tile pin prompt (Android 13+)
+    fun requestAddQuickSettingsTile() {
         val context = getApplication<Application>()
-        val currentlyVisible = uiState.value.syncState.overlayVisible
-        if (currentlyVisible) {
-            OverlayCompanionService.stopCompanion(context)
-            return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val statusBarManager = context.getSystemService(StatusBarManager::class.java)
+            if (statusBarManager != null) {
+                statusBarManager.requestAddTileService(
+                    ComponentName(context, AodLyricsTileService::class.java),
+                    context.getString(R.string.qs_tile_label),
+                    Icon.createWithResource(context, R.drawable.ic_notif_lyric),
+                    context.mainExecutor
+                ) { resultCode ->
+                    _statusBanner.value = when (resultCode) {
+                        StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED ->
+                            "Added AOD Lyrics tile to Quick Settings"
+                        StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED ->
+                            "AOD Lyrics tile is already in your Quick Settings"
+                        else ->
+                            "Swipe down Quick Settings and drag 'AOD Lyrics' to pin it"
+                    }
+                }
+                return
+            }
         }
-        val canDraw = Settings.canDrawOverlays(context)
-        _permissions.value = readPermissionsSnapshot()
-        if (!canDraw) {
-            _showOverlayRationale.value = true
-            return
-        }
-        OverlayCompanionService.startWithOverlay(context)
+        _statusBanner.value = "Swipe down Quick Settings, tap Edit, and drag 'AOD Lyrics' into active tiles"
     }
 
-    fun dismissOverlayRationale() {
-        _showOverlayRationale.value = false
+    // Theme & AMOLED Design preferences
+    fun updateFontFamily(family: KaraokeFontFamily) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(fontFamily = family) } }
+    }
+
+    fun updateFontSizeSp(sizeSp: Float) {
+        viewModelScope.launch {
+            preferencesDataStore.update { it.copy(fontSizeSp = sizeSp.coerceIn(20f, 42f)) }
+        }
+    }
+
+    fun updateColorPreset(preset: LyricColorPreset) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(colorPreset = preset) } }
+    }
+
+    fun updateAlignment(alignment: LyricTextAlignment) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(alignment = alignment) } }
+    }
+
+    fun updateNextLineVisible(visible: Boolean) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(nextLineVisible = visible) } }
+    }
+
+    fun updateOledPixelShift(enabled: Boolean) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(oledPixelShiftEnabled = enabled) } }
+    }
+
+    fun updateKeepScreenOnWhilePlaying(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesDataStore.update { it.copy(keepScreenOnWhilePlaying = enabled) }
+        }
+    }
+
+    fun updateUseDynamicColor(enabled: Boolean) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(useDynamicColor = enabled) } }
+    }
+
+    fun updateHapticsEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(hapticsEnabled = enabled) } }
     }
 
     fun toggleTrackingEnabled(enabled: Boolean) {
@@ -215,53 +254,6 @@ class LyricVerseViewModel(
         }
     }
 
-    // Style Studio preferences
-    fun updateFontFamily(family: KaraokeFontFamily) {
-        viewModelScope.launch { preferencesDataStore.update { it.copy(fontFamily = family) } }
-    }
-
-    fun updateFontSizeSp(sizeSp: Float) {
-        viewModelScope.launch {
-            preferencesDataStore.update { it.copy(fontSizeSp = sizeSp.coerceIn(18f, 38f)) }
-        }
-    }
-
-    fun updateColorPreset(preset: LyricColorPreset) {
-        viewModelScope.launch { preferencesDataStore.update { it.copy(colorPreset = preset) } }
-    }
-
-    fun updateBackgroundStyle(style: StageBackgroundStyle) {
-        viewModelScope.launch { preferencesDataStore.update { it.copy(backgroundStyle = style) } }
-    }
-
-    fun updateAlignment(alignment: LyricTextAlignment) {
-        viewModelScope.launch { preferencesDataStore.update { it.copy(alignment = alignment) } }
-    }
-
-    fun updateStageOpacity(opacity: Float) {
-        viewModelScope.launch {
-            preferencesDataStore.update { it.copy(stageOpacity = opacity.coerceIn(0.45f, 1.0f)) }
-        }
-    }
-
-    fun updateOverlayOpacity(opacity: Float) {
-        viewModelScope.launch {
-            preferencesDataStore.update { it.copy(overlayOpacity = opacity.coerceIn(0.55f, 1.0f)) }
-        }
-    }
-
-    fun updateOverlayDefaultMode(mode: OverlayDefaultMode) {
-        viewModelScope.launch { preferencesDataStore.update { it.copy(overlayDefaultMode = mode) } }
-    }
-
-    fun updateUseDynamicColor(enabled: Boolean) {
-        viewModelScope.launch { preferencesDataStore.update { it.copy(useDynamicColor = enabled) } }
-    }
-
-    fun updateHapticsEnabled(enabled: Boolean) {
-        viewModelScope.launch { preferencesDataStore.update { it.copy(hapticsEnabled = enabled) } }
-    }
-
     fun updateOnlineLookupEnabled(enabled: Boolean) {
         viewModelScope.launch { preferencesDataStore.update { it.copy(onlineLookupEnabled = enabled) } }
     }
@@ -273,6 +265,12 @@ class LyricVerseViewModel(
     fun updateLockScreenNotificationEnabled(enabled: Boolean) {
         viewModelScope.launch {
             preferencesDataStore.update { it.copy(lockScreenNotificationEnabled = enabled) }
+            val context = getApplication<Application>()
+            if (enabled && readPermissionsSnapshot().postNotificationsGranted) {
+                OverlayCompanionService.startCompanion(context)
+            } else {
+                OverlayCompanionService.stopCompanion(context)
+            }
         }
     }
 
@@ -281,11 +279,8 @@ class LyricVerseViewModel(
         _searchQuery.value = query
     }
 
-    fun executeManualSearch(overrideQuery: String? = null) {
-        val q = (overrideQuery ?: _searchQuery.value).trim()
-        if (overrideQuery != null) {
-            _searchQuery.value = overrideQuery
-        }
+    fun executeManualSearch() {
+        val q = _searchQuery.value.trim()
         viewModelScope.launch {
             _isSearching.value = true
             val online = uiState.value.syncState.preferences.onlineLookupEnabled
@@ -298,19 +293,13 @@ class LyricVerseViewModel(
 
     fun loadManualLyricsOntoStage(document: LyricDocument) {
         syncCoordinator.loadManualDocument(document)
-        _statusBanner.value = "Loaded \"${document.trackTitle}\" onto Stage"
+        _statusBanner.value = "Loaded \"${document.trackTitle}\" for AMOLED display"
     }
 
     fun clearLyricsCache() {
         viewModelScope.launch {
             lyricsRepository.clearCache()
             _statusBanner.value = "Offline lyrics cache cleared"
-        }
-    }
-
-    fun deleteCacheEntry(trackKey: String) {
-        viewModelScope.launch {
-            lyricsRepository.deleteCacheEntry(trackKey)
         }
     }
 
@@ -321,14 +310,6 @@ class LyricVerseViewModel(
     // System settings intents
     fun createNotificationListenerSettingsIntent(): Intent {
         return Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-    }
-
-    fun createOverlaySettingsIntent(): Intent {
-        val pkg = getApplication<Application>().packageName
-        return Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:$pkg")
-        )
     }
 
     fun createAppNotificationSettingsIntent(): Intent {
@@ -349,7 +330,6 @@ class LyricVerseViewModel(
     private fun readPermissionsSnapshot(): PermissionStatusSnapshot {
         val context = getApplication<Application>()
         val listenerGranted = mediaSessionTracker.isNotificationListenerGranted()
-        val overlayGranted = Settings.canDrawOverlays(context)
         val postNotifGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
                 android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -360,7 +340,6 @@ class LyricVerseViewModel(
         val ignoringBattery = pm?.isIgnoringBatteryOptimizations(context.packageName) ?: false
         return PermissionStatusSnapshot(
             notificationListenerGranted = listenerGranted,
-            overlayPermissionGranted = overlayGranted,
             postNotificationsGranted = postNotifGranted,
             ignoringBatteryOptimizations = ignoringBattery,
         )
