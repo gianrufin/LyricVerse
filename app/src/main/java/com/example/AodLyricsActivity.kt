@@ -1,10 +1,13 @@
 package com.example
 
+import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Color as AndroidColor
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -31,6 +34,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.domain.model.LockscreenOrientation
 import com.example.ui.components.AodTwoLineLyricsView
 import com.example.ui.theme.LyricVerseTheme
 import kotlinx.coroutines.delay
@@ -39,39 +43,44 @@ import kotlin.math.roundToInt
 
 /**
  * Pure #000000 AMOLED full-screen minimal lyrics display.
- * Safe to show over lock screen because it renders ONLY the active and next lyric lines
- * with zero settings, personal data, or keyguard bypass.
+ * Safe to show over lock screen because it renders ONLY the song title intro (briefly)
+ * and the active/next lyric lines with zero settings, personal data, or keyguard bypass.
  */
 class AodLyricsActivity : ComponentActivity() {
+
+    private var wasTriggeredFromLock = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Allow showing this lyrics-only surface when locked, without turning on screen unprompted
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-        } else {
-            @Suppress("DEPRECATION")
-            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
-        }
+        applyLockScreenWindowBehavior(intent)
 
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(AndroidColor.BLACK),
             navigationBarStyle = SystemBarStyle.dark(AndroidColor.BLACK)
         )
-
-        // Hide system bars for pure distraction-free AMOLED stage
-        WindowCompat.getInsetsController(window, window.decorView).apply {
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            hide(WindowInsetsCompat.Type.systemBars())
-        }
+        hideSystemBars()
 
         val container = (application as LyricVerseApplication).appContainer
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                dismissAod()
+            }
+        })
 
         setContent {
             val state by container.syncCoordinator.syncState.collectAsStateWithLifecycle()
             val prefs = state.preferences
             val shouldKeepScreenOn = prefs.keepScreenOnWhilePlaying && state.snapshot.isPlaying
+
+            LaunchedEffect(prefs.lockscreenOrientation) {
+                requestedOrientation = when (prefs.lockscreenOrientation) {
+                    LockscreenOrientation.AUTO -> ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                    LockscreenOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    LockscreenOrientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                }
+            }
 
             // Dynamically hold FLAG_KEEP_SCREEN_ON only while playback is active
             DisposableEffect(shouldKeepScreenOn) {
@@ -113,13 +122,13 @@ class AodLyricsActivity : ComponentActivity() {
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClickLabel = "Close AMOLED lyrics",
-                            onClick = { finish() }
+                            onClick = { dismissAod() }
                         )
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 28.dp, vertical = 32.dp),
+                            .padding(horizontal = 28.dp, vertical = 24.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         AodTwoLineLyricsView(
@@ -137,7 +146,71 @@ class AodLyricsActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        applyLockScreenWindowBehavior(intent)
+        hideSystemBars()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        (application as LyricVerseApplication).appContainer.syncCoordinator.setAodActivityForeground(true)
+        hideSystemBars()
+    }
+
+    override fun onPause() {
+        (application as LyricVerseApplication).appContainer.syncCoordinator.setAodActivityForeground(false)
+        super.onPause()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            hideSystemBars()
+        }
+    }
+
+    private fun dismissAod() {
+        if (wasTriggeredFromLock) {
+            (application as LyricVerseApplication).appContainer.syncCoordinator.markAodDismissedByUser()
+        }
+        finish()
+    }
+
+    private fun applyLockScreenWindowBehavior(intent: Intent?) {
+        val fromLock = intent?.getBooleanExtra(EXTRA_FROM_LOCK_TRIGGER, false) == true
+        val wakeScreen = intent?.getBooleanExtra(EXTRA_WAKE_SCREEN, false) == true
+        if (fromLock) {
+            wasTriggeredFromLock = true
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            if (wakeScreen) {
+                setTurnScreenOn(true)
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
+            if (wakeScreen) {
+                @Suppress("DEPRECATION")
+                window.addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
+            }
+        }
+    }
+
+    private fun hideSystemBars() {
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
     companion object {
+        const val EXTRA_FROM_LOCK_TRIGGER = "extra_from_lock_trigger"
+        const val EXTRA_WAKE_SCREEN = "extra_wake_screen"
+
         private val PIXEL_SHIFT_OFFSETS = listOf(
             0 to 0,
             6 to -4,

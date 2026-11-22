@@ -57,6 +57,14 @@ class LyricSyncCoordinator(
     private val _companionServiceRunning = MutableStateFlow(false)
     private val _manualOverrideDoc = MutableStateFlow<LyricDocument?>(null)
 
+    @Volatile
+    var isAodActivityForeground: Boolean = false
+        private set
+
+    @Volatile
+    var dismissedAodOnCurrentLock: Boolean = false
+        private set
+
     private var lastFetchedSignature: String? = null
     private var fetchJob: Job? = null
     private var syncLoopJob: Job? = null
@@ -154,6 +162,21 @@ class LyricSyncCoordinator(
                 restartSyncScheduler(snapshot, lyrics, offsetMs)
             }
         }
+    }
+
+    fun setAodActivityForeground(foreground: Boolean) {
+        isAodActivityForeground = foreground
+        if (foreground) {
+            dismissedAodOnCurrentLock = false
+        }
+    }
+
+    fun markAodDismissedByUser() {
+        dismissedAodOnCurrentLock = true
+    }
+
+    fun resetLockDismissalState() {
+        dismissedAodOnCurrentLock = false
     }
 
     fun setOverlayVisible(visible: Boolean) {

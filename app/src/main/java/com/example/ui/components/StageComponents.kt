@@ -1,15 +1,23 @@
 package com.example.ui.components
 
+import android.os.SystemClock
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,10 +46,20 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -57,27 +75,47 @@ import com.example.domain.model.KaraokeFontFamily
 import com.example.domain.model.LyricColorPreset
 import com.example.domain.model.LyricSyncType
 import com.example.domain.model.LyricTextAlignment
+import com.example.domain.model.LyricWord
 import com.example.domain.model.PlaybackSessionStatus
 import com.example.media.CompanionSyncState
 import com.example.media.LyricsStageState
+import com.example.media.PlaybackClockExtrapolator
+import com.example.ui.theme.BricolageGrotesqueFamily
+import com.example.ui.theme.CaveatFontFamily
+import com.example.ui.theme.CormorantGaramondFamily
+import com.example.ui.theme.FredokaFontFamily
+import com.example.ui.theme.InstrumentSerifFamily
 import com.example.ui.theme.JetBrainsMonoFamily
 import com.example.ui.theme.LyricActive
 import com.example.ui.theme.LyricPast
 import com.example.ui.theme.OutfitFontFamily
+import com.example.ui.theme.PacificoFontFamily
 import com.example.ui.theme.PlayfairDisplayFamily
 import com.example.ui.theme.PlusJakartaSansFamily
+import com.example.ui.theme.SpaceGroteskFamily
 import com.example.ui.theme.StageAmber
 import com.example.ui.theme.StageCyan
 import com.example.ui.theme.StageObsidian
 import com.example.ui.theme.StageSurfaceElevated
 import com.example.ui.theme.StageViolet
+import com.example.ui.theme.SyneFontFamily
 import com.example.ui.theme.TextMuted
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 fun KaraokeFontFamily.toComposeFontFamily(): FontFamily = when (this) {
     KaraokeFontFamily.PLUS_JAKARTA_SANS -> PlusJakartaSansFamily
     KaraokeFontFamily.OUTFIT -> OutfitFontFamily
-    KaraokeFontFamily.PLAYFAIR_DISPLAY -> PlayfairDisplayFamily
+    KaraokeFontFamily.SPACE_GROTESK -> SpaceGroteskFamily
     KaraokeFontFamily.JETBRAINS_MONO -> JetBrainsMonoFamily
+    KaraokeFontFamily.INSTRUMENT_SERIF -> InstrumentSerifFamily
+    KaraokeFontFamily.CORMORANT_GARAMOND -> CormorantGaramondFamily
+    KaraokeFontFamily.PLAYFAIR_DISPLAY -> PlayfairDisplayFamily
+    KaraokeFontFamily.SYNE -> SyneFontFamily
+    KaraokeFontFamily.FREDOKA -> FredokaFontFamily
+    KaraokeFontFamily.BRICOLAGE_GROTESQUE -> BricolageGrotesqueFamily
+    KaraokeFontFamily.PACIFICO -> PacificoFontFamily
+    KaraokeFontFamily.CAVEAT -> CaveatFontFamily
 }
 
 fun LyricTextAlignment.toComposeTextAlign(): TextAlign = when (this) {
@@ -96,124 +134,452 @@ fun LyricColorPreset.resolveActiveColor(): Color = when (this) {
 }
 
 /**
- * Ultra-minimal 2-line centered karaoke presentation for pure #000000 AMOLED & live preview.
- * Renders ONLY the lyrics (or minimal honest fallback phrase) with zero chrome or extra labels.
+ * Minimal centered karaoke view for pure #000000 AMOLED lock-screen & live settings preview.
+ * Supports brief Song Title + Artist intro on track start, Apple Music-style brief glass blur
+ * on line/word entry, word-by-word reveal, and landscape-responsive sizing.
  */
 @Composable
 fun AodTwoLineLyricsView(
     state: CompanionSyncState,
     modifier: Modifier = Modifier,
     isPreview: Boolean = false,
+    introTriggerNonce: Int = 0,
 ) {
     val prefs = state.preferences
     val fontFamily = prefs.fontFamily.toComposeFontFamily()
     val textAlign = prefs.alignment.toComposeTextAlign()
     val activeColor = prefs.colorPreset.resolveActiveColor()
-    val baseSizeSp = if (isPreview) (prefs.fontSizeSp * 0.72f).coerceIn(16f, 26f) else prefs.fontSizeSp
-
     val doc = (state.lyricsState as? LyricsStageState.Loaded)?.document
     val lines = doc?.lines.orEmpty()
     val idx = state.activeLineIndex
+    val snap = state.snapshot
 
-    val (primaryText, secondaryText) = when (val lyrics = state.lyricsState) {
-        is LyricsStageState.Loading -> "…" to null
-        is LyricsStageState.Unavailable -> "Lyrics unavailable" to null
-        is LyricsStageState.Loaded -> when (doc?.syncType) {
-            LyricSyncType.SYNCED -> {
-                val active = when {
-                    idx in lines.indices -> lines[idx].text
-                    lines.isNotEmpty() -> lines.first().text
-                    else -> "♪"
-                }
-                val next = if (prefs.nextLineVisible && idx >= 0 && (idx + 1) in lines.indices) {
-                    lines[idx + 1].text
-                } else if (prefs.nextLineVisible && idx < 0 && lines.size > 1) {
-                    lines[1].text
-                } else {
-                    null
-                }
-                active to next
-            }
-            LyricSyncType.PLAIN -> {
-                val nonBlank = doc.plainText.lineSequence()
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() && !it.startsWith("[") }
-                    .toList()
-                val first = nonBlank.getOrNull(0) ?: "Plain lyrics only"
-                val second = if (prefs.nextLineVisible) nonBlank.getOrNull(1) else null
-                first to second
-            }
-            LyricSyncType.INSTRUMENTAL -> "♪" to null
-            else -> "No lyrics" to null
-        }
-        is LyricsStageState.Idle -> when (state.snapshot.status) {
-            PlaybackSessionStatus.NO_PERMISSION -> "Notification access needed" to null
-            PlaybackSessionStatus.METADATA_MISSING -> "No track metadata" to null
-            PlaybackSessionStatus.SESSION_ENDED -> "Playback ended" to null
-            else -> if (isPreview) {
-                "Turning quiet shadows into stage light" to
-                    if (prefs.nextLineVisible) "Heartbeats locking on a golden wave" else null
-            } else {
-                "Waiting for music…" to null
+    // Smooth ~22fps clock extrapolation during active synced playback for fluid word-by-word pacing
+    var liveEffectivePosMs by remember { mutableLongStateOf(state.livePositionMs + prefs.syncOffsetMs) }
+    LaunchedEffect(
+        snap.isPlaying,
+        snap.positionMs,
+        snap.lastPositionUpdateElapsedMs,
+        snap.playbackSpeed,
+        prefs.syncOffsetMs,
+        prefs.wordByWordEnabled,
+        doc?.syncType,
+        state.livePositionMs,
+    ) {
+        liveEffectivePosMs = PlaybackClockExtrapolator.computePositionMs(
+            snapshot = snap,
+            currentElapsedRealtimeMs = SystemClock.elapsedRealtime()
+        ) + prefs.syncOffsetMs
+
+        if (snap.isPlaying && prefs.wordByWordEnabled && doc?.syncType == LyricSyncType.SYNCED) {
+            while (isActive) {
+                delay(45L)
+                liveEffectivePosMs = PlaybackClockExtrapolator.computePositionMs(
+                    snapshot = snap,
+                    currentElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                ) + prefs.syncOffsetMs
             }
         }
     }
 
-    val horizontalAlign = when (prefs.alignment) {
-        LyricTextAlignment.CENTER -> Alignment.CenterHorizontally
-        LyricTextAlignment.START -> Alignment.Start
-        LyricTextAlignment.END -> Alignment.End
+    // Track title + artist intro gate (brief ~2.4s display when a song starts or AOD opens)
+    val trackTitle = snap.trackTitle.ifBlank { doc?.trackTitle.orEmpty() }
+    val artistName = snap.artistName.ifBlank { doc?.artistName.orEmpty() }
+    val trackIdentityKey = when {
+        trackTitle.isNotBlank() -> "$trackTitle|$artistName"
+        else -> ""
+    }
+    var showingIntro by remember { mutableStateOf(false) }
+
+    LaunchedEffect(trackIdentityKey, prefs.showTrackIntroOnStart, isPreview, introTriggerNonce) {
+        val canShowIntro = prefs.showTrackIntroOnStart &&
+            trackIdentityKey.isNotBlank() &&
+            (!isPreview || introTriggerNonce > 0)
+        if (canShowIntro) {
+            showingIntro = true
+            delay(2400L)
+            showingIntro = false
+        } else {
+            showingIntro = false
+        }
+    }
+
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val isCompactLandscape = !isPreview && maxWidth > maxHeight && maxHeight < 460.dp
+        val baseSizeSp = when {
+            isPreview -> (prefs.fontSizeSp * 0.68f).coerceIn(16f, 24f)
+            isCompactLandscape -> (prefs.fontSizeSp * 0.90f).coerceIn(20f, 36f)
+            else -> prefs.fontSizeSp
+        }
+
+        val horizontalAlign = when (prefs.alignment) {
+            LyricTextAlignment.CENTER -> Alignment.CenterHorizontally
+            LyricTextAlignment.START -> Alignment.Start
+            LyricTextAlignment.END -> Alignment.End
+        }
+
+        AnimatedContent(
+            targetState = if (showingIntro) "INTRO:$trackIdentityKey" else "LYRICS",
+            transitionSpec = {
+                fadeIn(tween(340)) togetherWith fadeOut(tween(280))
+            },
+            label = "aod_intro_vs_lyrics"
+        ) { phase ->
+            if (phase.startsWith("INTRO:")) {
+                TrackIntroGlassReveal(
+                    title = trackTitle,
+                    artist = artistName,
+                    fontFamily = fontFamily,
+                    activeColor = activeColor,
+                    baseSizeSp = baseSizeSp,
+                    textAlign = textAlign,
+                    horizontalAlign = horizontalAlign,
+                    glassBlurEnabled = prefs.glassBlurEnabled,
+                )
+            } else {
+                val activeLine = if (doc?.syncType == LyricSyncType.SYNCED) {
+                    when {
+                        idx in lines.indices -> lines[idx]
+                        lines.isNotEmpty() -> lines.first()
+                        else -> null
+                    }
+                } else null
+
+                val (primaryText, secondaryText) = when (state.lyricsState) {
+                    is LyricsStageState.Loading -> "…" to null
+                    is LyricsStageState.Unavailable -> "Lyrics unavailable" to null
+                    is LyricsStageState.Loaded -> when (doc?.syncType) {
+                        LyricSyncType.SYNCED -> {
+                            val active = activeLine?.text ?: "♪"
+                            val next = if (prefs.nextLineVisible && idx >= 0 && (idx + 1) in lines.indices) {
+                                lines[idx + 1].text
+                            } else if (prefs.nextLineVisible && idx < 0 && lines.size > 1) {
+                                lines[1].text
+                            } else {
+                                null
+                            }
+                            active to next
+                        }
+                        LyricSyncType.PLAIN -> {
+                            val nonBlank = doc.plainText.lineSequence()
+                                .map { it.trim() }
+                                .filter { it.isNotEmpty() && !it.startsWith("[") }
+                                .toList()
+                            val first = nonBlank.getOrNull(0) ?: "Plain lyrics only"
+                            val second = if (prefs.nextLineVisible) nonBlank.getOrNull(1) else null
+                            first to second
+                        }
+                        LyricSyncType.INSTRUMENTAL -> "♪" to null
+                        else -> "No lyrics" to null
+                    }
+                    is LyricsStageState.Idle -> when (snap.status) {
+                        PlaybackSessionStatus.NO_PERMISSION -> "Notification access needed" to null
+                        PlaybackSessionStatus.METADATA_MISSING -> "No track metadata" to null
+                        PlaybackSessionStatus.SESSION_ENDED -> "Playback ended" to null
+                        else -> if (isPreview) {
+                            "Turning quiet shadows into stage light" to
+                                if (prefs.nextLineVisible) "Heartbeats locking on a golden wave" else null
+                        } else {
+                            "Waiting for music…" to null
+                        }
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = horizontalAlign,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    val transitionKey = "${activeLine?.index ?: -1}:$primaryText"
+                    AnimatedContent(
+                        targetState = transitionKey,
+                        transitionSpec = {
+                            (fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
+                                slideInVertically { it / 6 }) togetherWith
+                                (fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) +
+                                    slideOutVertically { -it / 6 })
+                        },
+                        label = "aod_active_line"
+                    ) { key ->
+                        val lineBlurAnim = remember(key, prefs.glassBlurEnabled) {
+                            Animatable(if (prefs.glassBlurEnabled) 13f else 0f)
+                        }
+                        val lineScaleAnim = remember(key) { Animatable(0.955f) }
+
+                        LaunchedEffect(key, prefs.glassBlurEnabled) {
+                            lineBlurAnim.snapTo(if (prefs.glassBlurEnabled) 13f else 0f)
+                            lineScaleAnim.snapTo(0.955f)
+                            if (prefs.glassBlurEnabled) {
+                                lineBlurAnim.animateTo(
+                                    targetValue = 0f,
+                                    animationSpec = tween(durationMillis = 410, easing = FastOutSlowInEasing)
+                                )
+                            }
+                        }
+                        LaunchedEffect(key) {
+                            lineScaleAnim.animateTo(
+                                targetValue = 1f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                )
+                            )
+                        }
+
+                        val words = activeLine?.words.orEmpty()
+                        val useWordByWord = prefs.wordByWordEnabled &&
+                            words.isNotEmpty() &&
+                            doc?.syncType == LyricSyncType.SYNCED &&
+                            (snap.isPlaying || !isPreview || idx >= 0)
+
+                        if (useWordByWord) {
+                            WordByWordLine(
+                                words = words,
+                                effectivePosMs = liveEffectivePosMs,
+                                previewMode = isPreview && !snap.isPlaying,
+                                fontFamily = fontFamily,
+                                activeColor = activeColor,
+                                baseSizeSp = baseSizeSp,
+                                alignment = prefs.alignment,
+                                glassBlurEnabled = prefs.glassBlurEnabled,
+                                entryBlurDp = lineBlurAnim.value,
+                                entryScale = lineScaleAnim.value,
+                            )
+                        } else {
+                            Text(
+                                text = primaryText,
+                                color = activeColor,
+                                fontFamily = fontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = baseSizeSp.sp,
+                                lineHeight = (baseSizeSp * 1.26f).sp,
+                                textAlign = textAlign,
+                                maxLines = if (isCompactLandscape) 3 else 4,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .graphicsLayer {
+                                        scaleX = lineScaleAnim.value
+                                        scaleY = lineScaleAnim.value
+                                    }
+                                    .then(
+                                        if (lineBlurAnim.value > 0.25f) {
+                                            Modifier.blur(
+                                                radius = lineBlurAnim.value.dp,
+                                                edgeTreatment = BlurredEdgeTreatment.Unbounded
+                                            )
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
+                            )
+                        }
+                    }
+
+                    if (!secondaryText.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(if (isPreview) 8.dp else if (isCompactLandscape) 12.dp else 18.dp))
+                        AnimatedContent(
+                            targetState = secondaryText,
+                            transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(220)) },
+                            label = "aod_next_line"
+                        ) { next ->
+                            Text(
+                                text = next,
+                                color = LyricPast.copy(alpha = if (prefs.glassBlurEnabled) 0.44f else 0.58f),
+                                fontFamily = fontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = (baseSizeSp * 0.70f).sp,
+                                lineHeight = (baseSizeSp * 0.94f).sp,
+                                textAlign = textAlign,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .then(
+                                        if (prefs.glassBlurEnabled) {
+                                            Modifier.blur(
+                                                radius = 1.8.dp,
+                                                edgeTreatment = BlurredEdgeTreatment.Unbounded
+                                            )
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackIntroGlassReveal(
+    title: String,
+    artist: String,
+    fontFamily: FontFamily,
+    activeColor: Color,
+    baseSizeSp: Float,
+    textAlign: TextAlign,
+    horizontalAlign: Alignment.Horizontal,
+    glassBlurEnabled: Boolean,
+) {
+    val blurRadius = remember(title, artist, glassBlurEnabled) {
+        Animatable(if (glassBlurEnabled) 16f else 0f)
+    }
+    val alphaAnim = remember(title, artist) { Animatable(0f) }
+
+    LaunchedEffect(title, artist, glassBlurEnabled) {
+        alphaAnim.snapTo(0f)
+        alphaAnim.animateTo(1f, tween(340))
+    }
+    LaunchedEffect(title, artist, glassBlurEnabled) {
+        if (glassBlurEnabled) {
+            blurRadius.snapTo(16f)
+            blurRadius.animateTo(0f, tween(480, easing = FastOutSlowInEasing))
+        } else {
+            blurRadius.snapTo(0f)
+        }
     }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(alphaAnim.value)
+            .then(
+                if (blurRadius.value > 0.25f) {
+                    Modifier.blur(blurRadius.value.dp, BlurredEdgeTreatment.Unbounded)
+                } else {
+                    Modifier
+                }
+            )
+            .testTag("aod_track_intro"),
         horizontalAlignment = horizontalAlign,
         verticalArrangement = Arrangement.Center
     ) {
-        AnimatedContent(
-            targetState = primaryText,
-            transitionSpec = {
-                (fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
-                    slideInVertically { it / 5 }) togetherWith
-                    (fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) +
-                        slideOutVertically { -it / 5 })
-            },
-            label = "aod_active_line"
-        ) { line ->
+        Text(
+            text = title,
+            color = activeColor,
+            fontFamily = fontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = (baseSizeSp * 1.04f).sp,
+            lineHeight = (baseSizeSp * 1.24f).sp,
+            textAlign = textAlign,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (artist.isNotBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = line,
-                color = activeColor,
+                text = artist,
+                color = LyricPast.copy(alpha = 0.72f),
                 fontFamily = fontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = baseSizeSp.sp,
-                lineHeight = (baseSizeSp * 1.28f).sp,
+                fontWeight = FontWeight.Medium,
+                fontSize = (baseSizeSp * 0.68f).sp,
+                lineHeight = (baseSizeSp * 0.90f).sp,
                 textAlign = textAlign,
-                maxLines = 4,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
+}
 
-        if (!secondaryText.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(if (isPreview) 8.dp else 18.dp))
-            AnimatedContent(
-                targetState = secondaryText,
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
-                label = "aod_next_line"
-            ) { next ->
-                Text(
-                    text = next,
-                    color = LyricPast.copy(alpha = 0.62f),
-                    fontFamily = fontFamily,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = (baseSizeSp * 0.72f).sp,
-                    lineHeight = (baseSizeSp * 0.96f).sp,
-                    textAlign = textAlign,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth()
-                )
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WordByWordLine(
+    words: List<LyricWord>,
+    effectivePosMs: Long,
+    previewMode: Boolean,
+    fontFamily: FontFamily,
+    activeColor: Color,
+    baseSizeSp: Float,
+    alignment: LyricTextAlignment,
+    glassBlurEnabled: Boolean,
+    entryBlurDp: Float,
+    entryScale: Float,
+) {
+    val flowArrangement = when (alignment) {
+        LyricTextAlignment.CENTER -> Arrangement.Center
+        LyricTextAlignment.START -> Arrangement.Start
+        LyricTextAlignment.END -> Arrangement.End
+    }
+
+    val halfPoint = (words.size + 1) / 2
+
+    FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = entryScale
+                scaleY = entryScale
             }
+            .then(
+                if (entryBlurDp > 0.25f) {
+                    Modifier.blur(entryBlurDp.dp, BlurredEdgeTreatment.Unbounded)
+                } else {
+                    Modifier
+                }
+            ),
+        horizontalArrangement = flowArrangement,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        words.forEachIndexed { wordIdx, word ->
+            val isReached = if (previewMode) {
+                wordIdx < halfPoint
+            } else {
+                effectivePosMs >= word.startMs
+            }
+            val isCurrentlySinging = !previewMode &&
+                effectivePosMs >= word.startMs &&
+                effectivePosMs <= word.endMs
+
+            val targetAlpha = if (isReached) 1f else 0.34f
+            val wordAlpha by animateFloatAsState(
+                targetValue = targetAlpha,
+                animationSpec = tween(durationMillis = 190, easing = FastOutSlowInEasing),
+                label = "word_alpha"
+            )
+            val targetBlur = when {
+                !glassBlurEnabled -> 0f
+                isReached -> 0f
+                else -> 2.4f
+            }
+            val wordBlur by animateFloatAsState(
+                targetValue = targetBlur,
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                label = "word_blur"
+            )
+            val targetLiftScale = if (isCurrentlySinging) 1.04f else 1.0f
+            val wordScale by animateFloatAsState(
+                targetValue = targetLiftScale,
+                animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                label = "word_scale"
+            )
+
+            Text(
+                text = if (wordIdx == words.lastIndex) word.text else "${word.text} ",
+                color = activeColor.copy(alpha = wordAlpha),
+                fontFamily = fontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = baseSizeSp.sp,
+                lineHeight = (baseSizeSp * 1.26f).sp,
+                modifier = Modifier
+                    .graphicsLayer {
+                        scaleX = wordScale
+                        scaleY = wordScale
+                    }
+                    .then(
+                        if (wordBlur > 0.2f) {
+                            Modifier.blur(wordBlur.dp, BlurredEdgeTreatment.Unbounded)
+                        } else {
+                            Modifier
+                        }
+                    )
+            )
         }
     }
 }

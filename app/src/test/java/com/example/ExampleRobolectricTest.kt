@@ -11,7 +11,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -27,7 +26,7 @@ class ExampleRobolectricTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun `manifest declares AodLyricsActivity, AodLyricsTileService, and minimal permissions`() {
+    fun `manifest declares AodLyricsActivity, AodLyricsTileService, and companion permissions`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         assertEquals("LyricVerse", context.getString(R.string.app_name))
 
@@ -37,7 +36,7 @@ class ExampleRobolectricTest {
         )
         val permissions = packageInfo.requestedPermissions?.toSet().orEmpty()
         assertTrue(permissions.contains(android.Manifest.permission.INTERNET))
-        assertFalse(permissions.contains(android.Manifest.permission.SYSTEM_ALERT_WINDOW))
+        assertTrue(permissions.contains(android.Manifest.permission.SYSTEM_ALERT_WINDOW))
         assertTrue(permissions.contains(android.Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE))
 
         val tileService = packageInfo.services?.firstOrNull {
@@ -64,11 +63,13 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `cuj_opens_directly_to_settings_with_show_lyrics_cta_and_demo_preview`() {
+    fun `cuj_opens_directly_to_settings_with_show_lyrics_cta_and_auto_lock_controls`() {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("home_settings_screen").assertIsDisplayed()
         composeRule.onNodeWithTag("show_lyrics_button").assertIsDisplayed()
         composeRule.onNodeWithTag("pin_qs_tile_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("auto_show_lock_switch").assertIsDisplayed()
+        composeRule.onNodeWithTag("orientation_landscape").assertIsDisplayed()
 
         // Start synced demo track and verify preview updates
         composeRule.onNodeWithTag("demo_chip_0").performClick()

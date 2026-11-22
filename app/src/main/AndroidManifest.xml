@@ -5,12 +5,15 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Optional minimal lock-screen notification on Android 13+ -->
+    <!-- Optional foreground notification on Android 13+ for lock-screen companion & auto-launch -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Optional foreground service strictly when user enables Lock-Screen Lyric Notification -->
+    <!-- Optional foreground service strictly when user enables Lock-Screen Notification or Auto-Show on Lock -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- Optional Display Over Other Apps permission: grants Android 10+ background activity launch exemption for Auto-Show on Lock -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:name=".LyricVerseApplication"
@@ -42,6 +45,7 @@
         <!-- Minimal pure #000000 AMOLED lyrics display; safe to show over lock screen -->
         <activity
             android:name=".AodLyricsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
             android:exported="true"
             android:label="@string/qs_tile_label"
             android:launchMode="singleTop"
@@ -78,7 +82,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-activated minimal lock-screen lyric notification companion without audio capture or playback control." />
+                android:value="User-activated lock-screen AMOLED lyrics companion and screen-lock listener without audio capture or playback control." />
         </service>
 
     </application>

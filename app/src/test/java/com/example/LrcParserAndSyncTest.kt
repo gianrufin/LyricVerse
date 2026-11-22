@@ -6,6 +6,7 @@ import com.example.domain.model.PlaybackSnapshot
 import com.example.media.PlaybackClockExtrapolator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LrcParserAndSyncTest {
@@ -27,6 +28,31 @@ class LrcParserAndSyncTest {
         assertEquals("Repeated chorus line", lines[1].text)
         assertEquals(30_600L, lines[2].timestampMs)
         assertEquals("Repeated chorus line", lines[2].text)
+    }
+
+    @Test
+    fun `parses enhanced LRC word tags and builds proportional word timings when absent`() {
+        val raw = """
+            [00:02.00]<00:02.00>Hello <00:02.60>world <00:03.20>tonight
+            [00:05.00]City lights glow bright
+        """.trimIndent()
+
+        val lines = LrcParser.parse(raw)
+        assertEquals(2, lines.size)
+
+        // Explicit Enhanced LRC word timestamps
+        assertEquals("Hello world tonight", lines[0].text)
+        assertEquals(3, lines[0].words.size)
+        assertEquals(2_000L, lines[0].words[0].startMs)
+        assertEquals(2_600L, lines[0].words[1].startMs)
+        assertEquals(3_200L, lines[0].words[2].startMs)
+
+        // Proportional interpolated word timings
+        assertEquals(4, lines[1].words.size)
+        assertEquals("City", lines[1].words[0].text)
+        assertEquals(5_000L, lines[1].words[0].startMs)
+        assertTrue(lines[1].words[1].startMs > lines[1].words[0].startMs)
+        assertTrue(lines[1].words[3].endMs > lines[1].words[3].startMs)
     }
 
     @Test

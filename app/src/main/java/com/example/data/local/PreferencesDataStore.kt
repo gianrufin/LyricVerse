@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.domain.model.KaraokeFontFamily
 import com.example.domain.model.KaraokeStylePreferences
+import com.example.domain.model.LockscreenOrientation
 import com.example.domain.model.LyricColorPreset
 import com.example.domain.model.LyricTextAlignment
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +29,12 @@ class PreferencesDataStore(private val context: Context) {
         val COLOR_PRESET = stringPreferencesKey("color_preset")
         val ALIGNMENT = stringPreferencesKey("alignment")
         val NEXT_LINE_VISIBLE = booleanPreferencesKey("next_line_visible")
+        val WORD_BY_WORD_ENABLED = booleanPreferencesKey("word_by_word_enabled")
+        val GLASS_BLUR_ENABLED = booleanPreferencesKey("glass_blur_enabled")
+        val SHOW_TRACK_INTRO = booleanPreferencesKey("show_track_intro")
+        val LOCKSCREEN_ORIENTATION = stringPreferencesKey("lockscreen_orientation")
+        val AUTO_SHOW_ON_LOCK = booleanPreferencesKey("auto_show_on_lock")
+        val WAKE_SCREEN_ON_LOCK = booleanPreferencesKey("wake_screen_on_lock")
         val OLED_PIXEL_SHIFT = booleanPreferencesKey("oled_pixel_shift")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val USE_DYNAMIC_COLOR = booleanPreferencesKey("use_dynamic_color")
@@ -51,6 +58,12 @@ class PreferencesDataStore(private val context: Context) {
             prefs[Keys.COLOR_PRESET] = updated.colorPreset.name
             prefs[Keys.ALIGNMENT] = updated.alignment.name
             prefs[Keys.NEXT_LINE_VISIBLE] = updated.nextLineVisible
+            prefs[Keys.WORD_BY_WORD_ENABLED] = updated.wordByWordEnabled
+            prefs[Keys.GLASS_BLUR_ENABLED] = updated.glassBlurEnabled
+            prefs[Keys.SHOW_TRACK_INTRO] = updated.showTrackIntroOnStart
+            prefs[Keys.LOCKSCREEN_ORIENTATION] = updated.lockscreenOrientation.name
+            prefs[Keys.AUTO_SHOW_ON_LOCK] = updated.autoShowOnLockEnabled
+            prefs[Keys.WAKE_SCREEN_ON_LOCK] = updated.wakeScreenOnLock
             prefs[Keys.OLED_PIXEL_SHIFT] = updated.oledPixelShiftEnabled
             prefs[Keys.KEEP_SCREEN_ON] = updated.keepScreenOnWhilePlaying
             prefs[Keys.USE_DYNAMIC_COLOR] = updated.useDynamicColor
@@ -70,6 +83,12 @@ class PreferencesDataStore(private val context: Context) {
             colorPreset = prefs[Keys.COLOR_PRESET].parseEnum(LyricColorPreset.STAGE_WHITE),
             alignment = prefs[Keys.ALIGNMENT].parseEnum(LyricTextAlignment.CENTER),
             nextLineVisible = prefs[Keys.NEXT_LINE_VISIBLE] ?: true,
+            wordByWordEnabled = prefs[Keys.WORD_BY_WORD_ENABLED] ?: true,
+            glassBlurEnabled = prefs[Keys.GLASS_BLUR_ENABLED] ?: true,
+            showTrackIntroOnStart = prefs[Keys.SHOW_TRACK_INTRO] ?: true,
+            lockscreenOrientation = prefs[Keys.LOCKSCREEN_ORIENTATION].parseEnum(LockscreenOrientation.AUTO),
+            autoShowOnLockEnabled = prefs[Keys.AUTO_SHOW_ON_LOCK] ?: false,
+            wakeScreenOnLock = prefs[Keys.WAKE_SCREEN_ON_LOCK] ?: true,
             oledPixelShiftEnabled = prefs[Keys.OLED_PIXEL_SHIFT] ?: true,
             keepScreenOnWhilePlaying = prefs[Keys.KEEP_SCREEN_ON] ?: true,
             useDynamicColor = prefs[Keys.USE_DYNAMIC_COLOR] ?: true,

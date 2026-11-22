@@ -8,9 +8,9 @@
 
     <!-- Notifications & Companion Service -->
     <string name="notif_channel_companion_name">Lock-Screen Lyrics</string>
-    <string name="notif_channel_companion_desc">Minimal ongoing notification showing active lyrics on supported lock screens.</string>
+    <string name="notif_channel_companion_desc">Minimal ongoing notification and auto-lock trigger for AMOLED lock-screen lyrics.</string>
     <string name="notif_companion_default_title">LyricVerse</string>
-    <string name="notif_companion_waiting_text">Listening for compatible playback…</string>
+    <string name="notif_companion_waiting_text">Ready for lock-screen AMOLED lyrics…</string>
     <string name="notif_action_stop">Stop</string>
     <string name="notif_action_open_aod">Show AMOLED Lyrics</string>
 

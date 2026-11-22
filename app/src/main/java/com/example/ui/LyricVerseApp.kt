@@ -91,6 +91,12 @@ fun LyricVerseApp(viewModel: LyricVerseViewModel) {
                     onSelectColorPreset = viewModel::updateColorPreset,
                     onSelectAlignment = viewModel::updateAlignment,
                     onToggleNextLineVisible = viewModel::updateNextLineVisible,
+                    onToggleWordByWord = viewModel::updateWordByWordEnabled,
+                    onToggleGlassBlur = viewModel::updateGlassBlurEnabled,
+                    onToggleShowTrackIntro = viewModel::updateShowTrackIntroOnStart,
+                    onSelectLockscreenOrientation = viewModel::updateLockscreenOrientation,
+                    onToggleAutoShowOnLock = viewModel::updateAutoShowOnLockEnabled,
+                    onToggleWakeScreenOnLock = viewModel::updateWakeScreenOnLock,
                     onTogglePixelShift = viewModel::updateOledPixelShift,
                     onToggleKeepScreenOn = viewModel::updateKeepScreenOnWhilePlaying,
                     onToggleDynamicColor = viewModel::updateUseDynamicColor,
@@ -102,6 +108,9 @@ fun LyricVerseApp(viewModel: LyricVerseViewModel) {
                     onLoadManualDocument = viewModel::loadManualLyricsOntoStage,
                     onOpenListenerSettings = {
                         context.startActivity(viewModel.createNotificationListenerSettingsIntent())
+                    },
+                    onOpenOverlaySettings = {
+                        context.startActivity(viewModel.createOverlaySettingsIntent())
                     },
                     onRequestPostNotifications = {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&

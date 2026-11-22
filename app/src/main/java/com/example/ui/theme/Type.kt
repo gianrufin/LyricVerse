@@ -22,15 +22,61 @@ val OutfitFontFamily = FontFamily(
     Font(R.font.outfit, FontWeight.Bold),
 )
 
+val SpaceGroteskFamily = FontFamily(
+    Font(R.font.space_grotesk, FontWeight.Normal),
+    Font(R.font.space_grotesk, FontWeight.Medium),
+    Font(R.font.space_grotesk, FontWeight.Bold),
+)
+
+val JetBrainsMonoFamily = FontFamily(
+    Font(R.font.jetbrains_mono, FontWeight.Normal),
+    Font(R.font.jetbrains_mono, FontWeight.Medium),
+)
+
+// Premium Editorial Fonts
+val InstrumentSerifFamily = FontFamily(
+    Font(R.font.instrument_serif, FontWeight.Normal),
+    Font(R.font.instrument_serif, FontWeight.Bold),
+)
+
+val CormorantGaramondFamily = FontFamily(
+    Font(R.font.cormorant_garamond, FontWeight.Normal),
+    Font(R.font.cormorant_garamond, FontWeight.Medium),
+    Font(R.font.cormorant_garamond, FontWeight.Bold),
+)
+
 val PlayfairDisplayFamily = FontFamily(
     Font(R.font.playfair_display, FontWeight.Normal),
     Font(R.font.playfair_display, FontWeight.Medium),
     Font(R.font.playfair_display, FontWeight.Bold),
 )
 
-val JetBrainsMonoFamily = FontFamily(
-    Font(R.font.jetbrains_mono, FontWeight.Normal),
-    Font(R.font.jetbrains_mono, FontWeight.Medium),
+val SyneFontFamily = FontFamily(
+    Font(R.font.syne, FontWeight.Normal),
+    Font(R.font.syne, FontWeight.Bold),
+)
+
+// Fun & Expressive Fonts
+val FredokaFontFamily = FontFamily(
+    Font(R.font.fredoka, FontWeight.Normal),
+    Font(R.font.fredoka, FontWeight.Medium),
+    Font(R.font.fredoka, FontWeight.Bold),
+)
+
+val BricolageGrotesqueFamily = FontFamily(
+    Font(R.font.bricolage_grotesque, FontWeight.Normal),
+    Font(R.font.bricolage_grotesque, FontWeight.Medium),
+    Font(R.font.bricolage_grotesque, FontWeight.Bold),
+)
+
+val PacificoFontFamily = FontFamily(
+    Font(R.font.pacifico, FontWeight.Normal),
+    Font(R.font.pacifico, FontWeight.Bold),
+)
+
+val CaveatFontFamily = FontFamily(
+    Font(R.font.caveat, FontWeight.Normal),
+    Font(R.font.caveat, FontWeight.Bold),
 )
 
 val LyricVerseTypography = Typography(

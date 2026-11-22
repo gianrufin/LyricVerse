@@ -7,10 +7,17 @@ enum class LyricSyncType {
     NONE,
 }
 
+data class LyricWord(
+    val text: String,
+    val startMs: Long,
+    val endMs: Long,
+)
+
 data class LyricLine(
     val index: Int,
     val timestampMs: Long,
     val text: String,
+    val words: List<LyricWord> = emptyList(),
 )
 
 data class LyricDocument(
@@ -42,17 +49,39 @@ sealed interface LyricsLookupResult {
     data class Error(val message: String, val retryAfterSeconds: Int? = null) : LyricsLookupResult
 }
 
-enum class KaraokeFontFamily(val label: String) {
-    PLUS_JAKARTA_SANS("Jakarta Stage"),
-    OUTFIT("Outfit Rounded"),
-    PLAYFAIR_DISPLAY("Playfair Serif"),
-    JETBRAINS_MONO("JetBrains Mono"),
+enum class FontCategory(val label: String) {
+    STAGE("Stage Clean"),
+    PREMIUM("Premium Editorial"),
+    FUN("Fun & Expressive"),
+}
+
+enum class KaraokeFontFamily(val label: String, val category: FontCategory) {
+    PLUS_JAKARTA_SANS("Jakarta Stage", FontCategory.STAGE),
+    OUTFIT("Outfit Rounded", FontCategory.STAGE),
+    SPACE_GROTESK("Space Grotesk", FontCategory.STAGE),
+    JETBRAINS_MONO("JetBrains Mono", FontCategory.STAGE),
+
+    INSTRUMENT_SERIF("Instrument Serif", FontCategory.PREMIUM),
+    CORMORANT_GARAMOND("Cormorant Luxury", FontCategory.PREMIUM),
+    PLAYFAIR_DISPLAY("Playfair Serif", FontCategory.PREMIUM),
+    SYNE("Syne Editorial", FontCategory.PREMIUM),
+
+    FREDOKA("Fredoka Pop", FontCategory.FUN),
+    BRICOLAGE_GROTESQUE("Bricolage Indie", FontCategory.FUN),
+    PACIFICO("Pacifico Brush", FontCategory.FUN),
+    CAVEAT("Caveat Script", FontCategory.FUN),
 }
 
 enum class LyricTextAlignment(val label: String) {
     CENTER("Centered"),
     START("Left"),
     END("Right"),
+}
+
+enum class LockscreenOrientation(val label: String) {
+    AUTO("Auto"),
+    PORTRAIT("Portrait"),
+    LANDSCAPE("Landscape"),
 }
 
 enum class LyricColorPreset(val label: String) {
@@ -69,6 +98,12 @@ data class KaraokeStylePreferences(
     val colorPreset: LyricColorPreset = LyricColorPreset.STAGE_WHITE,
     val alignment: LyricTextAlignment = LyricTextAlignment.CENTER,
     val nextLineVisible: Boolean = true,
+    val wordByWordEnabled: Boolean = true,
+    val glassBlurEnabled: Boolean = true,
+    val showTrackIntroOnStart: Boolean = true,
+    val lockscreenOrientation: LockscreenOrientation = LockscreenOrientation.AUTO,
+    val autoShowOnLockEnabled: Boolean = false,
+    val wakeScreenOnLock: Boolean = true,
     val oledPixelShiftEnabled: Boolean = true,
     val keepScreenOnWhilePlaying: Boolean = true,
     val useDynamicColor: Boolean = true,

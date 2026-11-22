@@ -32,9 +32,9 @@ import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Lyrics
-import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -51,7 +51,12 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -64,7 +69,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.domain.model.FontCategory
 import com.example.domain.model.KaraokeFontFamily
+import com.example.domain.model.LockscreenOrientation
 import com.example.domain.model.LyricColorPreset
 import com.example.domain.model.LyricDocument
 import com.example.domain.model.LyricSyncType
@@ -73,6 +80,7 @@ import com.example.ui.LyricVerseUiState
 import com.example.ui.components.AodTwoLineLyricsView
 import com.example.ui.components.DemoTransportBar
 import com.example.ui.components.SyncOffsetCalibrationRow
+import com.example.ui.components.toComposeFontFamily
 import com.example.ui.theme.LyricActive
 import com.example.ui.theme.StageAmber
 import com.example.ui.theme.StageObsidian
@@ -101,6 +109,12 @@ fun HomeSettingsScreen(
     onSelectColorPreset: (LyricColorPreset) -> Unit,
     onSelectAlignment: (LyricTextAlignment) -> Unit,
     onToggleNextLineVisible: (Boolean) -> Unit,
+    onToggleWordByWord: (Boolean) -> Unit,
+    onToggleGlassBlur: (Boolean) -> Unit,
+    onToggleShowTrackIntro: (Boolean) -> Unit,
+    onSelectLockscreenOrientation: (LockscreenOrientation) -> Unit,
+    onToggleAutoShowOnLock: (Boolean) -> Unit,
+    onToggleWakeScreenOnLock: (Boolean) -> Unit,
     onTogglePixelShift: (Boolean) -> Unit,
     onToggleKeepScreenOn: (Boolean) -> Unit,
     onToggleDynamicColor: (Boolean) -> Unit,
@@ -111,6 +125,7 @@ fun HomeSettingsScreen(
     onSearchSubmit: () -> Unit,
     onLoadManualDocument: (LyricDocument) -> Unit,
     onOpenListenerSettings: () -> Unit,
+    onOpenOverlaySettings: () -> Unit,
     onRequestPostNotifications: () -> Unit,
     onOpenBatterySettings: () -> Unit,
     onToggleTracking: (Boolean) -> Unit,
@@ -154,6 +169,15 @@ fun HomeSettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 item {
+                    LockScreenAodBehaviorSection(
+                        uiState = uiState,
+                        onToggleAutoShowOnLock = onToggleAutoShowOnLock,
+                        onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
+                        onSelectLockscreenOrientation = onSelectLockscreenOrientation,
+                        onOpenOverlaySettings = onOpenOverlaySettings,
+                    )
+                }
+                item {
                     ThemeDesignSection(
                         uiState = uiState,
                         onSelectFontFamily = onSelectFontFamily,
@@ -161,6 +185,9 @@ fun HomeSettingsScreen(
                         onSelectColorPreset = onSelectColorPreset,
                         onSelectAlignment = onSelectAlignment,
                         onToggleNextLineVisible = onToggleNextLineVisible,
+                        onToggleWordByWord = onToggleWordByWord,
+                        onToggleGlassBlur = onToggleGlassBlur,
+                        onToggleShowTrackIntro = onToggleShowTrackIntro,
                         onTogglePixelShift = onTogglePixelShift,
                         onToggleKeepScreenOn = onToggleKeepScreenOn,
                         onToggleDynamicColor = onToggleDynamicColor,
@@ -214,6 +241,15 @@ fun HomeSettingsScreen(
                 )
             }
             item {
+                LockScreenAodBehaviorSection(
+                    uiState = uiState,
+                    onToggleAutoShowOnLock = onToggleAutoShowOnLock,
+                    onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
+                    onSelectLockscreenOrientation = onSelectLockscreenOrientation,
+                    onOpenOverlaySettings = onOpenOverlaySettings,
+                )
+            }
+            item {
                 ThemeDesignSection(
                     uiState = uiState,
                     onSelectFontFamily = onSelectFontFamily,
@@ -221,6 +257,9 @@ fun HomeSettingsScreen(
                     onSelectColorPreset = onSelectColorPreset,
                     onSelectAlignment = onSelectAlignment,
                     onToggleNextLineVisible = onToggleNextLineVisible,
+                    onToggleWordByWord = onToggleWordByWord,
+                    onToggleGlassBlur = onToggleGlassBlur,
+                    onToggleShowTrackIntro = onToggleShowTrackIntro,
                     onTogglePixelShift = onTogglePixelShift,
                     onToggleKeepScreenOn = onToggleKeepScreenOn,
                     onToggleDynamicColor = onToggleDynamicColor,
@@ -271,6 +310,7 @@ private fun HeroLaunchSection(
     val prefs = sync.preferences
     val snap = sync.snapshot
     val haptics = LocalHapticFeedback.current
+    var previewIntroNonce by remember { mutableIntStateOf(0) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
@@ -298,7 +338,9 @@ private fun HeroLaunchSection(
             }
 
             Surface(
-                color = if (uiState.permissions.notificationListenerGranted) {
+                color = if (prefs.autoShowOnLockEnabled) {
+                    StageViolet.copy(alpha = 0.2f)
+                } else if (uiState.permissions.notificationListenerGranted) {
                     SuccessMint.copy(alpha = 0.14f)
                 } else {
                     StageAmber.copy(alpha = 0.14f)
@@ -306,9 +348,17 @@ private fun HeroLaunchSection(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = if (uiState.permissions.notificationListenerGranted) "LISTENER ON" else "DEMO READY",
+                    text = when {
+                        prefs.autoShowOnLockEnabled -> "AUTO LOCK AOD"
+                        uiState.permissions.notificationListenerGranted -> "LISTENER ON"
+                        else -> "DEMO READY"
+                    },
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (uiState.permissions.notificationListenerGranted) SuccessMint else StageAmber,
+                    color = when {
+                        prefs.autoShowOnLockEnabled -> StageViolet
+                        uiState.permissions.notificationListenerGranted -> SuccessMint
+                        else -> StageAmber
+                    },
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                 )
             }
@@ -322,13 +372,38 @@ private fun HeroLaunchSection(
                 .fillMaxWidth()
                 .border(1.dp, StageOutline, RoundedCornerShape(24.dp))
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 28.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                AodTwoLineLyricsView(state = sync, isPreview = true)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 26.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AodTwoLineLyricsView(
+                        state = sync,
+                        isPreview = true,
+                        introTriggerNonce = previewIntroNonce
+                    )
+                }
+                if (snap.hasValidMetadata && prefs.showTrackIntroOnStart) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = 10.dp, bottom = 4.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = { previewIntroNonce++ },
+                            modifier = Modifier.testTag("preview_intro_button")
+                        ) {
+                            Text(
+                                text = "Preview Title Intro",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -434,6 +509,78 @@ private fun HeroLaunchSection(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+private fun LockScreenAodBehaviorSection(
+    uiState: LyricVerseUiState,
+    onToggleAutoShowOnLock: (Boolean) -> Unit,
+    onToggleWakeScreenOnLock: (Boolean) -> Unit,
+    onSelectLockscreenOrientation: (LockscreenOrientation) -> Unit,
+    onOpenOverlaySettings: () -> Unit,
+) {
+    val prefs = uiState.syncState.preferences
+    val perms = uiState.permissions
+    val haptics = LocalHapticFeedback.current
+
+    SettingsCard(title = "Lock-Screen Auto AOD & Orientation") {
+        SettingsSwitchRow(
+            title = "Auto-Show on Lock Screen",
+            subtitle = "Automatically opens AMOLED lyrics when you play a song and lock the device",
+            checked = prefs.autoShowOnLockEnabled,
+            onCheckedChange = onToggleAutoShowOnLock,
+            testTag = "auto_show_lock_switch"
+        )
+
+        if (prefs.autoShowOnLockEnabled) {
+            SettingsSwitchRow(
+                title = "Wake Into Black AOD on Lock",
+                subtitle = "Brings up pure #000000 lyrics immediately when locked while playing",
+                checked = prefs.wakeScreenOnLock,
+                onCheckedChange = onToggleWakeScreenOnLock,
+                testTag = "wake_on_lock_switch"
+            )
+
+            PermissionRow(
+                title = "Display Over Apps (Auto-Lock Trigger)",
+                subtitle = "Optional on Android 10+ so background players (Spotify, Apple Music) can launch lock-screen lyrics automatically.",
+                granted = perms.overlayPermissionGranted,
+                buttonLabel = if (perms.overlayPermissionGranted) "Allowed" else "Allow",
+                testTag = "grant_overlay_button",
+                onClick = onOpenOverlaySettings,
+            )
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Rounded.ScreenRotation,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Lockscreen Orientation",
+                style = MaterialTheme.typography.labelLarge,
+                color = LyricActive
+            )
+        }
+
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LockscreenOrientation.entries.forEach { orientation ->
+                FilterChip(
+                    selected = prefs.lockscreenOrientation == orientation,
+                    onClick = {
+                        if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelectLockscreenOrientation(orientation)
+                    },
+                    label = { Text(orientation.label) },
+                    modifier = Modifier.testTag("orientation_${orientation.name.lowercase()}")
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun ThemeDesignSection(
     uiState: LyricVerseUiState,
     onSelectFontFamily: (KaraokeFontFamily) -> Unit,
@@ -441,6 +588,9 @@ private fun ThemeDesignSection(
     onSelectColorPreset: (LyricColorPreset) -> Unit,
     onSelectAlignment: (LyricTextAlignment) -> Unit,
     onToggleNextLineVisible: (Boolean) -> Unit,
+    onToggleWordByWord: (Boolean) -> Unit,
+    onToggleGlassBlur: (Boolean) -> Unit,
+    onToggleShowTrackIntro: (Boolean) -> Unit,
     onTogglePixelShift: (Boolean) -> Unit,
     onToggleKeepScreenOn: (Boolean) -> Unit,
     onToggleDynamicColor: (Boolean) -> Unit,
@@ -449,29 +599,38 @@ private fun ThemeDesignSection(
     val prefs = uiState.syncState.preferences
     val haptics = LocalHapticFeedback.current
 
-    SettingsCard(title = "Theme & AMOLED Design") {
-        Text(
-            text = "Font Family",
-            style = MaterialTheme.typography.labelLarge,
-            color = LyricActive
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            KaraokeFontFamily.entries.forEach { family ->
-                FilterChip(
-                    selected = prefs.fontFamily == family,
-                    onClick = {
-                        if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSelectFontFamily(family)
-                    },
-                    label = { Text(family.label) }
-                )
+    SettingsCard(title = "Fonts, Effects & AMOLED Design") {
+        FontCategory.entries.forEach { category ->
+            val fontsInCategory = KaraokeFontFamily.entries.filter { it.category == category }
+            Text(
+                text = category.label,
+                style = MaterialTheme.typography.labelLarge,
+                color = LyricActive
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                fontsInCategory.forEach { family ->
+                    FilterChip(
+                        selected = prefs.fontFamily == family,
+                        onClick = {
+                            if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelectFontFamily(family)
+                        },
+                        label = {
+                            Text(
+                                text = family.label,
+                                fontFamily = family.toComposeFontFamily()
+                            )
+                        },
+                        modifier = Modifier.testTag("font_${family.name.lowercase()}")
+                    )
+                }
             }
+            Spacer(modifier = Modifier.height(4.dp))
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = "Lyric Size: ${prefs.fontSizeSp.roundToInt()} sp",
             style = MaterialTheme.typography.labelLarge,
@@ -523,6 +682,27 @@ private fun ThemeDesignSection(
             }
         }
 
+        SettingsSwitchRow(
+            title = "Word-by-Word Lyrics Reveal",
+            subtitle = "Paces each word smoothly with the song (enhanced LRC tags or syllable cadence)",
+            checked = prefs.wordByWordEnabled,
+            onCheckedChange = onToggleWordByWord,
+            testTag = "word_by_word_switch"
+        )
+        SettingsSwitchRow(
+            title = "Apple-Style Glass Blur Transition",
+            subtitle = "Briefly blurs incoming lines and upcoming words before snapping crisp (Android 12+)",
+            checked = prefs.glassBlurEnabled,
+            onCheckedChange = onToggleGlassBlur,
+            testTag = "glass_blur_switch"
+        )
+        SettingsSwitchRow(
+            title = "Song Title & Artist Intro",
+            subtitle = "Briefly shows track title and artist when a new song starts, then reveals lyrics",
+            checked = prefs.showTrackIntroOnStart,
+            onCheckedChange = onToggleShowTrackIntro,
+            testTag = "track_intro_switch"
+        )
         SettingsSwitchRow(
             title = "Show Upcoming Next Line",
             subtitle = "Displays active + dimmed next line centered on #000000",
@@ -695,7 +875,7 @@ private fun PermissionsSourcesSection(
         if (!perms.postNotificationsGranted) {
             PermissionRow(
                 title = "Post Notifications (Android 13+)",
-                subtitle = "Needed only if you turn on Minimal Lock-Screen Notification.",
+                subtitle = "Needed for the ongoing Lock-Screen Companion notification and Auto-Show status.",
                 granted = false,
                 buttonLabel = "Allow",
                 testTag = "grant_notifications_button",
@@ -780,7 +960,7 @@ private fun PermissionsSourcesSection(
                     )
                 }
                 Text(
-                    text = "Android prevents third-party apps from replacing the OEM hardware Doze AOD. Use the 'AOD Lyrics' Quick Settings tile (works directly from your lock screen) or tap 'Show Lyrics' to launch the pure #000000 AMOLED lyrics screen without exposing Settings.",
+                    text = "Android reserves the OEM hardware Doze AOD exclusively for SystemUI and blocks floating windows over the keyguard. When 'Auto-Show on Lock Screen' is enabled, LyricVerse listens for screen-lock events during active playback and launches its pure #000000 AMOLED lyrics screen on top of the lock screen without bypassing your unlock security.",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextMuted
                 )

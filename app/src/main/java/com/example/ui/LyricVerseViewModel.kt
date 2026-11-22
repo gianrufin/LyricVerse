@@ -22,6 +22,7 @@ import com.example.data.local.PreferencesDataStore
 import com.example.data.lyrics.LyricsRepository
 import com.example.domain.model.DemoTrack
 import com.example.domain.model.KaraokeFontFamily
+import com.example.domain.model.LockscreenOrientation
 import com.example.domain.model.LyricColorPreset
 import com.example.domain.model.LyricDocument
 import com.example.domain.model.LyricTextAlignment
@@ -40,6 +41,7 @@ import kotlinx.coroutines.launch
 
 data class PermissionStatusSnapshot(
     val notificationListenerGranted: Boolean = false,
+    val overlayPermissionGranted: Boolean = false,
     val postNotificationsGranted: Boolean = true,
     val ignoringBatteryOptimizations: Boolean = false,
 )
@@ -224,6 +226,39 @@ class LyricVerseViewModel(
         viewModelScope.launch { preferencesDataStore.update { it.copy(nextLineVisible = visible) } }
     }
 
+    fun updateWordByWordEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(wordByWordEnabled = enabled) } }
+    }
+
+    fun updateGlassBlurEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(glassBlurEnabled = enabled) } }
+    }
+
+    fun updateShowTrackIntroOnStart(enabled: Boolean) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(showTrackIntroOnStart = enabled) } }
+    }
+
+    fun updateLockscreenOrientation(orientation: LockscreenOrientation) {
+        viewModelScope.launch {
+            preferencesDataStore.update { it.copy(lockscreenOrientation = orientation) }
+        }
+    }
+
+    fun updateAutoShowOnLockEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesDataStore.update { it.copy(autoShowOnLockEnabled = enabled) }
+            syncCompanionServiceState()
+            if (enabled && !readPermissionsSnapshot().overlayPermissionGranted) {
+                _statusBanner.value =
+                    "Auto-Show enabled. Grant 'Display Over Apps' below for background Spotify/Apple Music lock launches."
+            }
+        }
+    }
+
+    fun updateWakeScreenOnLock(enabled: Boolean) {
+        viewModelScope.launch { preferencesDataStore.update { it.copy(wakeScreenOnLock = enabled) } }
+    }
+
     fun updateOledPixelShift(enabled: Boolean) {
         viewModelScope.launch { preferencesDataStore.update { it.copy(oledPixelShiftEnabled = enabled) } }
     }
@@ -265,12 +300,18 @@ class LyricVerseViewModel(
     fun updateLockScreenNotificationEnabled(enabled: Boolean) {
         viewModelScope.launch {
             preferencesDataStore.update { it.copy(lockScreenNotificationEnabled = enabled) }
-            val context = getApplication<Application>()
-            if (enabled && readPermissionsSnapshot().postNotificationsGranted) {
-                OverlayCompanionService.startCompanion(context)
-            } else {
-                OverlayCompanionService.stopCompanion(context)
-            }
+            syncCompanionServiceState()
+        }
+    }
+
+    private fun syncCompanionServiceState() {
+        val prefs = syncCoordinator.preferencesFlow.value
+        val needsService = prefs.autoShowOnLockEnabled || prefs.lockScreenNotificationEnabled
+        val context = getApplication<Application>()
+        if (needsService) {
+            OverlayCompanionService.startCompanion(context)
+        } else {
+            OverlayCompanionService.stopCompanion(context)
         }
     }
 
@@ -312,6 +353,14 @@ class LyricVerseViewModel(
         return Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
     }
 
+    fun createOverlaySettingsIntent(): Intent {
+        val pkg = getApplication<Application>().packageName
+        return Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$pkg")
+        )
+    }
+
     fun createAppNotificationSettingsIntent(): Intent {
         val pkg = getApplication<Application>().packageName
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -330,6 +379,7 @@ class LyricVerseViewModel(
     private fun readPermissionsSnapshot(): PermissionStatusSnapshot {
         val context = getApplication<Application>()
         val listenerGranted = mediaSessionTracker.isNotificationListenerGranted()
+        val overlayGranted = Settings.canDrawOverlays(context)
         val postNotifGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
                 android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -340,6 +390,7 @@ class LyricVerseViewModel(
         val ignoringBattery = pm?.isIgnoringBatteryOptimizations(context.packageName) ?: false
         return PermissionStatusSnapshot(
             notificationListenerGranted = listenerGranted,
+            overlayPermissionGranted = overlayGranted,
             postNotificationsGranted = postNotifGranted,
             ignoringBatteryOptimizations = ignoringBattery,
         )
