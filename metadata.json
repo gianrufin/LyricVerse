@@ -1,0 +1,6 @@
+{
+  "name": "LyricVerse",
+  "description": "Synchronized song lyrics companion with Concert Stage Dark karaoke mode, LRCLIB and demo LRC providers, permitted Room offline cache, and an optional floating overlay.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
