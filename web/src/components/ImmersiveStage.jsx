@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Disc, Tv, Search, FolderOpen } from 'lucide-react'
+import { Search, FolderOpen, Play, Pause, Music } from 'lucide-react'
 
 const FONT_CLASS_MAP = {
   PLUS_JAKARTA_SANS: 'font-jakarta',
@@ -26,12 +26,12 @@ export function ImmersiveStage({
   artistName,
   albumLightColors,
   onOpenSettings,
-  audioSource,
-  onChangeAudioSource,
-  onOpenSearch
+  onOpenSearch,
+  audioFileName,
+  onTogglePlayPause,
+  onSeek
 }) {
   const [showingIntro, setShowingIntro] = useState(false)
-  const [isSourceDropdownOpen, setIsSourceDropdownOpen] = useState(false)
 
   const fontClass = FONT_CLASS_MAP[preferences.fontFamily] || 'font-jakarta'
   const textAlign = preferences.alignment === 'START' ? 'text-left items-start' : preferences.alignment === 'END' ? 'text-right items-end' : 'text-center items-center'
@@ -73,55 +73,23 @@ export function ImmersiveStage({
     }
   }
 
-  const sourceLabels = {
-    SPOTIFY: { label: 'Spotify / YouTube Music', icon: Disc },
-    CUSTOM: { label: 'Custom LRC', icon: FolderOpen }
+  const formatTime = (ms) => {
+    const totalSecs = Math.floor(ms / 1000)
+    const mins = Math.floor(totalSecs / 60)
+    const secs = totalSecs % 60
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`
   }
-
-  const CurrentSourceIcon = sourceLabels[audioSource]?.icon || Disc
 
   return (
     <div className="relative w-full h-full bg-black flex flex-col items-center justify-center overflow-hidden select-none px-6 py-12">
       {/* Top Header Bar */}
       <div className="absolute top-6 left-6 right-6 z-30 flex items-center justify-between pointer-events-none">
         <div className="flex items-center gap-3 pointer-events-auto">
-          {/* Audio Source Badge */}
-          <div className="relative">
-            <button
-              onClick={() => setIsSourceDropdownOpen(!isSourceDropdownOpen)}
-              className="px-4 py-2.5 rounded-full bg-surface/90 hover:bg-elevated border border-outline/80 text-ivory text-xs font-mono tracking-wider transition-all flex items-center gap-2.5 shadow-2xl glass-blur"
-            >
-              <CurrentSourceIcon className="w-4 h-4 text-amber" />
-              <span>{sourceLabels[audioSource]?.label}</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-amber animate-pulse"></span>
-            </button>
-
-            {isSourceDropdownOpen && (
-              <div className="absolute top-full left-0 mt-2 w-56 bg-surface border border-outline rounded-2xl shadow-2xl overflow-hidden z-40 glass-blur">
-                {[
-                  { id: 'SPOTIFY', label: 'Spotify / YouTube Music', icon: Disc },
-                  { id: 'CUSTOM', label: 'Custom Upload / File', icon: FolderOpen }
-                ].map(src => {
-                  const Icon = src.icon
-                  const isSelected = audioSource === src.id
-                  return (
-                    <button
-                      key={src.id}
-                      onClick={() => {
-                        onChangeAudioSource(src.id)
-                        setIsSourceDropdownOpen(false)
-                      }}
-                      className={`w-full px-4 py-3 text-left text-xs font-medium flex items-center gap-3 transition-colors ${
-                        isSelected ? 'bg-elevated text-amber font-bold' : 'text-stone-secondary hover:text-ivory hover:bg-obsidian'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      {src.label}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+          {/* Audio File Badge */}
+          <div className="px-4 py-2.5 rounded-full bg-surface/90 border border-outline/80 text-ivory text-xs font-mono tracking-wider flex items-center gap-2.5 shadow-2xl glass-blur">
+            <Music className="w-4 h-4 text-amber" />
+            <span className="truncate max-w-[200px]">{audioFileName || 'No Audio Loaded'}</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-amber animate-pulse"></span>
           </div>
 
           {/* Quick Search Button */}
@@ -148,15 +116,16 @@ export function ImmersiveStage({
         {!hasLyrics ? (
           <div className="flex flex-col items-center justify-center text-center space-y-3 py-20">
             <div className="w-12 h-12 rounded-full bg-surface border border-outline flex items-center justify-center text-amber text-lg font-bold">♪</div>
-            <h2 className="text-xl font-semibold text-ivory">Ready for {trackTitle || 'Spotify / YouTube Music'}</h2>
+            <h2 className="text-xl font-semibold text-ivory">Ready for {trackTitle || 'Audio & Lyrics'}</h2>
             <p className="text-sm text-stone-secondary max-w-md">
-              Due to browser security isolation between tabs, use <strong className="text-ivory">Search LRCLIB</strong> above to instantly load synced lyrics for the song playing in your Spotify or YouTube Music app.
+              Upload your song audio file and search LRCLIB or upload your `.lrc` lyrics file in Studio Settings for 100% precise synchronization.
             </p>
             <button
               onClick={onOpenSearch}
-              className="mt-4 px-6 py-3 rounded-xl bg-amber text-amber-ink font-bold text-sm hover:bg-amber/90 transition-colors shadow-lg"
+              className="mt-4 px-6 py-3 rounded-xl bg-amber text-amber-ink font-bold text-sm hover:bg-amber/90 transition-colors shadow-lg flex items-center gap-2"
             >
-              Search Song Lyrics
+              <Search className="w-4 h-4" />
+              Open Player & Lyrics Studio
             </button>
           </div>
         ) : showingIntro ? (
@@ -220,6 +189,34 @@ export function ImmersiveStage({
           </div>
         )}
       </div>
+
+      {/* Floating Audio Transport Bar when audio is loaded */}
+      {audioFileName && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-xl px-6">
+          <div className="bg-surface/90 border border-outline/80 rounded-2xl p-4 shadow-2xl glass-blur flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs font-mono text-stone-secondary">
+              <span className="truncate text-ivory font-bold">{audioFileName}</span>
+              <span>{formatTime(positionMs)}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value="0"
+              onChange={(e) => onSeek(parseFloat(e.target.value))}
+              className="w-full h-1.5 bg-obsidian rounded-lg accent-amber cursor-pointer"
+            />
+            <div className="flex justify-center pt-1">
+              <button
+                onClick={onTogglePlayPause}
+                className="w-11 h-11 rounded-full bg-amber text-amber-ink hover:bg-amber/90 flex items-center justify-center shadow-lg transition-transform hover:scale-105"
+              >
+                {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="absolute bottom-6 left-6 text-xs font-mono text-stone-secondary/50 tracking-wider flex items-center gap-3">
         <span>LYRICVERSE WEB</span>

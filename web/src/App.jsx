@@ -2,15 +2,16 @@ import React, { useState, useEffect, useRef } from 'react'
 import { ImmersiveStage } from './components/ImmersiveStage'
 import { SettingsDrawer } from './components/SettingsDrawer'
 import { findActiveLineIndex } from './utils/lrcParser'
-import { createMediaSessionListener } from './services/mediaSessionListener'
 
 export default function App() {
-  const [audioSource, setAudioSource] = useState('SPOTIFY') // SPOTIFY | CUSTOM
   const [customDocument, setCustomDocument] = useState(null)
-  const [externalTrack, setExternalTrack] = useState({ title: 'Spotify / YouTube Music', artist: 'Ready for lyrics' })
-  const [isPlaying, setIsPlaying] = useState(true)
+  const [audioFile, setAudioFile] = useState(null)
+  const [audioFileName, setAudioFileName] = useState('')
+  const [isPlaying, setIsPlaying] = useState(false)
   const [positionMs, setPositionMs] = useState(0)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+
+  const audioRef = useRef(null)
 
   const [preferences, setPreferences] = useState({
     fontFamily: 'PLUS_JAKARTA_SANS',
@@ -27,57 +28,48 @@ export default function App() {
   })
 
   const activeDocument = customDocument
-  const activeTitle = externalTrack.title
-  const activeArtist = externalTrack.artist
+  const activeTitle = customDocument ? customDocument.trackTitle : (audioFileName || 'Audio & Lyrics Stage')
+  const activeArtist = customDocument ? customDocument.artistName : 'Upload Song & LRCLIB Lyrics'
   const activeColors = [0xE5A243, 0x7CD4D8, 0xF4EFE6]
-  const durationMs = customDocument ? (customDocument.lines[customDocument.lines.length - 1]?.timestampMs || 180000) + 5000 : 180000
 
   const activeLineIndex = findActiveLineIndex(activeDocument?.lines || [], positionMs)
 
-  // Media Session listener for Spotify Web or YouTube Music browser tabs / page media
-  useEffect(() => {
-    const listener = createMediaSessionListener(
-      (title, artist, playing, fetchedDoc) => {
-        setExternalTrack({ title, artist })
-        setIsPlaying(playing)
-        if (fetchedDoc) {
-          setCustomDocument(fetchedDoc)
-        }
-      },
-      (pos, playing) => {
-        setPositionMs(pos)
-        setIsPlaying(playing)
-      }
-    )
-
-    listener.start()
-    return () => listener.stop()
-  }, [])
-
-  // Playback timer loop when syncing with active media elements
-  const lastTickRef = useRef(Date.now())
-  useEffect(() => {
-    if (!isPlaying) {
-      lastTickRef.current = Date.now()
-      return
+  const handleLoadAudioFile = (file) => {
+    if (audioRef.current) {
+      audioRef.current.pause()
     }
+    const url = URL.createObjectURL(file)
+    const audio = new Audio(url)
+    audioRef.current = audio
+    setAudioFile(file)
+    setAudioFileName(file.name)
 
-    const interval = setInterval(() => {
-      const now = Date.now()
-      const delta = now - lastTickRef.current
-      lastTickRef.current = now
+    audio.addEventListener('timeupdate', () => {
+      setPositionMs(audio.currentTime * 1000)
+    })
+    audio.addEventListener('play', () => setIsPlaying(true))
+    audio.addEventListener('pause', () => setIsPlaying(false))
+    audio.addEventListener('ended', () => setIsPlaying(false))
 
-      setPositionMs(prev => {
-        const next = prev + delta
-        if (next >= durationMs) {
-          return 0
-        }
-        return next
-      })
-    }, 50)
+    audio.play().then(() => setIsPlaying(true)).catch(err => console.error('Audio play error:', err))
+    setIsSettingsOpen(false)
+  }
 
-    return () => clearInterval(interval)
-  }, [isPlaying, durationMs])
+  const handleTogglePlayPause = () => {
+    if (!audioRef.current) return
+    if (isPlaying) {
+      audioRef.current.pause()
+    } else {
+      audioRef.current.play()
+    }
+  }
+
+  const handleSeek = (progressPct) => {
+    if (!audioRef.current || !audioRef.current.duration) return
+    const newTime = (progressPct / 100) * audioRef.current.duration
+    audioRef.current.currentTime = newTime
+    setPositionMs(newTime * 1000)
+  }
 
   const handleUpdatePreference = (key, value) => {
     setPreferences(prev => ({ ...prev, [key]: value }))
@@ -85,8 +77,6 @@ export default function App() {
 
   const handleLoadDocument = (doc) => {
     setCustomDocument(doc)
-    setPositionMs(0)
-    setIsPlaying(true)
     setIsSettingsOpen(false)
   }
 
@@ -103,9 +93,10 @@ export default function App() {
         artistName={activeArtist}
         albumLightColors={activeColors}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        audioSource={audioSource}
-        onChangeAudioSource={(src) => setAudioSource(src)}
         onOpenSearch={() => setIsSettingsOpen(true)}
+        audioFileName={audioFileName}
+        onTogglePlayPause={handleTogglePlayPause}
+        onSeek={handleSeek}
       />
 
       {/* Collapsible Studio Settings Drawer */}
@@ -115,6 +106,7 @@ export default function App() {
         preferences={preferences}
         onUpdatePreference={handleUpdatePreference}
         onLoadDocument={handleLoadDocument}
+        onLoadAudioFile={handleLoadAudioFile}
       />
     </div>
   )

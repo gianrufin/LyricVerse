@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, Palette, Sparkles, Lock, Sliders, Search, Upload } from 'lucide-react'
+import { X, Palette, Sparkles, Lock, Sliders, Search, Upload, Music } from 'lucide-react'
 import { searchLrcLib } from '../services/lrcLib'
 import { parseLrc } from '../utils/lrcParser'
 
@@ -39,7 +39,8 @@ export function SettingsDrawer({
   onClose,
   preferences,
   onUpdatePreference,
-  onLoadDocument
+  onLoadDocument,
+  onLoadAudioFile
 }) {
   const [activeTab, setActiveTab] = useState('THEME')
   const [searchQuery, setSearchQuery] = useState('')
@@ -58,7 +59,7 @@ export function SettingsDrawer({
     setIsSearching(false)
   }
 
-  const handleFileUpload = (e) => {
+  const handleLrcUpload = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
@@ -72,6 +73,12 @@ export function SettingsDrawer({
     reader.readAsText(file)
   }
 
+  const handleAudioUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    onLoadAudioFile(file)
+  }
+
   const filteredFonts = FONT_FAMILIES.filter(f => f.category === fontCategoryTab)
 
   return (
@@ -81,7 +88,7 @@ export function SettingsDrawer({
         <div className="flex items-center justify-between px-6 py-5 border-b border-hairline">
           <div>
             <h2 className="text-lg font-bold text-ivory tracking-tight">Studio Settings</h2>
-            <p className="text-xs text-stone-secondary">Customize display & LRCLIB search</p>
+            <p className="text-xs text-stone-secondary">Audio player & LRCLIB search</p>
           </div>
           <button
             onClick={onClose}
@@ -96,8 +103,7 @@ export function SettingsDrawer({
           {[
             { id: 'THEME', label: 'Theme', icon: Palette },
             { id: 'TRANSITIONS', label: 'Transitions', icon: Sparkles },
-            { id: 'LOCK_AOD', label: 'AOD & Stage', icon: Lock },
-            { id: 'SOURCES', label: 'Search & Sources', icon: Sliders }
+            { id: 'SOURCES', label: 'Player & Search', icon: Music }
           ].map(tab => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -272,58 +278,6 @@ export function SettingsDrawer({
                     className="w-4 h-4 accent-amber rounded cursor-pointer"
                   />
                 </label>
-
-                <label className="flex items-center justify-between p-3 rounded-xl bg-obsidian border border-hairline cursor-pointer">
-                  <div>
-                    <span className="text-sm font-medium text-ivory block">Song Title & Artist Intro</span>
-                    <span className="text-xs text-stone-secondary">Briefly shows track info on song start</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={preferences.showTrackIntroOnStart}
-                    onChange={(e) => onUpdatePreference('showTrackIntroOnStart', e.target.checked)}
-                    className="w-4 h-4 accent-amber rounded cursor-pointer"
-                  />
-                </label>
-
-                <label className="flex items-center justify-between p-3 rounded-xl bg-obsidian border border-hairline cursor-pointer">
-                  <div>
-                    <span className="text-sm font-medium text-ivory block">Show Upcoming Next Line</span>
-                    <span className="text-xs text-stone-secondary">Displays dimmed preview line below</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={preferences.nextLineVisible}
-                    onChange={(e) => onUpdatePreference('nextLineVisible', e.target.checked)}
-                    className="w-4 h-4 accent-amber rounded cursor-pointer"
-                  />
-                </label>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'LOCK_AOD' && (
-            <div className="space-y-6">
-              <div className="p-4 rounded-xl bg-obsidian border border-hairline space-y-3">
-                <h3 className="text-sm font-bold text-ivory">AMOLED #000000 Stage Standards</h3>
-                <p className="text-xs text-stone-secondary leading-relaxed">
-                  The web stage renders in pure #000000 black to maximize OLED efficiency and prevent burn-in during long listening sessions.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <label className="flex items-center justify-between p-3 rounded-xl bg-obsidian border border-hairline cursor-pointer">
-                  <div>
-                    <span className="text-sm font-medium text-ivory block">Keep Screen Active</span>
-                    <span className="text-xs text-stone-secondary">Prevents sleep while karaoke is playing</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={preferences.keepScreenOn}
-                    onChange={(e) => onUpdatePreference('keepScreenOn', e.target.checked)}
-                    className="w-4 h-4 accent-amber rounded cursor-pointer"
-                  />
-                </label>
               </div>
             </div>
           )}
@@ -331,7 +285,19 @@ export function SettingsDrawer({
           {activeTab === 'SOURCES' && (
             <div className="space-y-6">
               <div>
-                <span className="text-xs font-mono tracking-wider text-stone-secondary block mb-3">SEARCH LRCLIB FOR SPOTIFY / YOUTUBE</span>
+                <span className="text-xs font-mono tracking-wider text-stone-secondary block mb-3">1. UPLOAD AUDIO FILE (100% PRECISE SYNC)</span>
+                <label className="w-full p-4 rounded-xl bg-obsidian hover:bg-elevated border border-dashed border-amber/60 flex flex-col items-center justify-center cursor-pointer transition-colors">
+                  <Music className="w-6 h-6 text-amber mb-2" />
+                  <span className="text-xs font-bold text-ivory">Upload MP3 / Audio Song</span>
+                  <span className="text-[11px] text-stone-secondary mt-1">Plays audio directly in app with automatic sync</span>
+                  <input type="file" accept="audio/*" onChange={handleAudioUpload} className="hidden" />
+                </label>
+              </div>
+
+              <div className="h-px bg-hairline" />
+
+              <div>
+                <span className="text-xs font-mono tracking-wider text-stone-secondary block mb-3">2. SEARCH LRCLIB FOR LYRICS</span>
                 <form onSubmit={handleSearch} className="flex gap-2">
                   <input
                     type="text"
@@ -353,7 +319,7 @@ export function SettingsDrawer({
                 )}
 
                 {searchResults.length > 0 && (
-                  <div className="mt-3 space-y-2 max-h-64 overflow-y-auto">
+                  <div className="mt-3 space-y-2 max-h-56 overflow-y-auto">
                     {searchResults.map((res, rIdx) => (
                       <div key={rIdx} className="p-3 rounded-xl bg-obsidian border border-hairline flex items-center justify-between">
                         <div className="truncate pr-3">
@@ -375,11 +341,11 @@ export function SettingsDrawer({
               <div className="h-px bg-hairline" />
 
               <div>
-                <span className="text-xs font-mono tracking-wider text-stone-secondary block mb-3">UPLOAD .LRC FILE</span>
+                <span className="text-xs font-mono tracking-wider text-stone-secondary block mb-3">3. UPLOAD .LRC FILE</span>
                 <label className="w-full p-4 rounded-xl bg-obsidian hover:bg-elevated border border-dashed border-outline flex flex-col items-center justify-center cursor-pointer transition-colors">
                   <Upload className="w-6 h-6 text-amber mb-2" />
-                  <span className="text-xs font-medium text-ivory">Click to upload .lrc or text lyrics</span>
-                  <input type="file" accept=".lrc,.txt" onChange={handleFileUpload} className="hidden" />
+                  <span className="text-xs font-medium text-ivory">Click to upload .lrc file</span>
+                  <input type="file" accept=".lrc,.txt" onChange={handleLrcUpload} className="hidden" />
                 </label>
               </div>
             </div>
