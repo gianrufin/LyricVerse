@@ -1,6 +1,6 @@
 # LyricVerse — Immersive Karaoke Companion
 
-LyricVerse is a professional, art-directed karaoke lyrics companion designed for both **Android** (passenger lock-screen AMOLED display and media tracking) and **Web** (full-window desktop stage with Spotify & YouTube Music media session synchronization).
+LyricVerse is an art-directed karaoke lyrics companion built for both **Android** (passenger lock-screen AMOLED display and system media tracking) and **Web** (full-window desktop stage hosted on GitHub Pages with microphone listening, tab audio capture, and LRCLIB synchronization).
 
 ---
 
@@ -24,13 +24,13 @@ LyricVerse features a token-based **Warm Obsidian, Ivory, and Burnished Amber** 
 
 ## 🌐 2. Web App & GitHub Pages Hosting
 
-The standalone web edition offers a full-window browser stage with custom styling, LRCLIB online lookup, and desktop media synchronization.
+The standalone web edition (`web/`) delivers a pure `#000000` full-window browser stage with custom typography, transition animations, Wake Lock support, LRCLIB search, local audio/LRC playback, and real-time audio listening.
 
 ### Hosting on GitHub Pages
 1. Push this repository to GitHub.
 2. Go to your repository **Settings** > **Pages**.
 3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-4. The included workflow (`.github/workflows/deploy.yml`) will automatically build and deploy your web app to GitHub Pages on every push to `main`.
+4. The included workflow (`.github/workflows/deploy.yml`) automatically builds and deploys `web/` to GitHub Pages on every push to `main`.
 
 ### Running Locally
 ```bash
@@ -42,16 +42,20 @@ Open `http://localhost:3000` in your browser.
 
 ---
 
-## 🎧 3. Desktop Media Integration (Spotify Web & YouTube Music)
+## 🎙️ 3. Listening to Spotify Web or YouTube Music on Desktop
 
-To prevent computer audio confusion when multiple browser tabs or apps play media, LyricVerse Web features a **Player Source Selector** badge in the stage header.
+Desktop browsers isolate separate tabs (like `open.spotify.com` or `music.youtube.com`) for security, so a static web page cannot read another tab's metadata directly. LyricVerse Web bridges this using two real browser audio-capture options:
 
-### How to Use Media Integration
-1. Click the source badge in the top-left header (defaults to **Demo Mode**).
-2. Switch the source to **Spotify Web** or **YouTube Music**.
-3. When playing music in Spotify Web player or YouTube Music browser tabs, LyricVerse automatically queries `navigator.mediaSession` and active media elements to sync track titles, artists, and live timestamps in real time.
-4. Use **Custom LRC** to drag-and-drop or upload your own `.lrc` lyrics files.
+1. **Microphone Listening (`MIC LISTEN`)**:
+   - Captures audio playing from your speakers or room via `getUserMedia` with a real-time Web Audio input meter.
+   - **With an AudD Token** *(recommended for Spotify/YouTube Music)*: Paste your personal `api_token` from [audd.io](https://audd.io/) into **Settings → Listen & Search** (stored locally in your browser). LyricVerse samples a ~5.5-second audio clip, identifies the exact song and live `timecode`, fetches synced lyrics from LRCLIB, and jumps straight to the matching lyric line.
+   - **Without an API Key (Chrome/Edge Fallback)**: Uses the browser's `SpeechRecognition` API to listen for audible vocal phrases—syncing to matching lines in a loaded song or suggesting LRCLIB matches when clear lyrics are heard.
+2. **Browser Tab Audio Capture (`TAB AUDIO`)**:
+   - On desktop Chrome or Edge, click **Tab Audio**, pick your Spotify Web or YouTube Music tab, and enable **Share tab audio**. This captures crystal-clear digital tab audio with zero room noise for AudD identification.
+3. **Manual Fine-Tuning & Local Playback**:
+   - Use the `-0.5s` / `+0.5s` sync calibration controls at the bottom of the stage to nudge lyric timing cleanly.
+   - Or upload an MP3/audio file or `.lrc` file in **Settings → Listen & Search** for frame-locked local playback.
 
 ### Best Practices for Web Version
-- **Second-Screen Setup**: Open LyricVerse Web on an external monitor, tablet, or secondary browser window in full-screen mode (`F11`).
-- **Browser Permissions**: Ensure your browser allows media session activity and background tab timers.
+- **Second-Screen Stage**: Open LyricVerse Web on a secondary monitor or tablet in full-screen mode (`F11`) with **Keep Screen Awake** enabled.
+- **Tab Audio vs. Mic**: Use **Tab Audio** when playing Spotify Web or YouTube Music in the same desktop browser, and **Mic Listen** when audio is playing from external speakers, a phone, or the Spotify desktop app.

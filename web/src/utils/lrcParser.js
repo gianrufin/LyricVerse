@@ -1,91 +1,119 @@
-export function parseLrc(rawText, trackTitle = "Unknown Track", artistName = "Unknown Artist") {
+export function parseLrc(rawText, trackTitle = 'Unknown Track', artistName = 'Unknown Artist') {
   if (!rawText || typeof rawText !== 'string') {
     return {
       trackTitle,
       artistName,
       syncType: 'NONE',
       lines: [],
-      plainText: rawText || ''
+      plainText: rawText || '',
+      offsetMs: 0
     }
   }
 
   const lines = []
   const rawLines = rawText.split(/\r?\n/)
   let hasSynced = false
+  let parsedTitle = trackTitle
+  let parsedArtist = artistName
+  let parsedOffsetMs = 0
 
-  // Regex to match [mm:ss.xx] or [mm:ss.xxx] or [mm:ss]
-  const timeTagRegex = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g
+  const timeTagGlobalRegex = /\[(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?\]/g
+  const metadataRegex = /^\[(ti|ar|al|offset):([^\]]*)\]$/i
 
   for (let i = 0; i < rawLines.length; i++) {
-    const line = rawLines.item ? rawLines.item(i) : rawLines[i]
-    const trimmed = line.trim()
+    const trimmed = (rawLines[i] || '').trim()
     if (!trimmed) continue
 
-    // Find all time tags in this line
+    const metaMatch = metadataRegex.exec(trimmed)
+    if (metaMatch) {
+      const key = metaMatch[1].toLowerCase()
+      const val = metaMatch[2].trim()
+      if (key === 'ti' && val) parsedTitle = val
+      if (key === 'ar' && val) parsedArtist = val
+      if (key === 'offset' && !Number.isNaN(Number(val))) parsedOffsetMs = Number(val)
+      continue
+    }
+
+    timeTagGlobalRegex.lastIndex = 0
     let match
     const timestamps = []
     let cleanText = trimmed
 
-    while ((match = timeTagRegex.exec(trimmed)) !== null) {
+    while ((match = timeTagGlobalRegex.exec(trimmed)) !== null) {
       hasSynced = true
       const mins = parseInt(match[1], 10)
       const secs = parseInt(match[2], 10)
       const millisStr = match[3] || '0'
-      const millis = millisStr.length === 2 ? parseInt(millisStr, 10) * 10 : parseInt(millisStr, 10)
-      const totalMs = (mins * 60 * 1000) + (secs * 1000) + millis
+      let millis = 0
+      if (millisStr.length === 1) millis = parseInt(millisStr, 10) * 100
+      else if (millisStr.length === 2) millis = parseInt(millisStr, 10) * 10
+      else millis = parseInt(millisStr.slice(0, 3), 10)
+
+      const totalMs = Math.max(0, mins * 60 * 1000 + secs * 1000 + millis + parsedOffsetMs)
       timestamps.push(totalMs)
       cleanText = cleanText.replace(match[0], '').trim()
     }
 
     if (timestamps.length > 0) {
-      // Parse word-level timing if present: word <mm:ss.xx>
-      const words = []
-      const wordRegex = /([^<]+)<(\d{2}):(\d{2})(?:\.(\d{2,3}))?>/g
-      let wordMatch
-      let hasWords = false
-
-      while ((wordMatch = wordRegex.exec(cleanText)) !== null) {
-        hasWords = true
-        const wText = wordMatch[1].trim()
-        const wMins = parseInt(wordMatch[2], 10)
-        const wSecs = parseInt(wordMatch[3], 10)
-        const wMillisStr = wordMatch[4] || '0'
-        const wMillis = wMillisStr.length === 2 ? parseInt(wMillisStr, 10) * 10 : parseInt(wMillisStr, 10)
-        const wStartMs = (wMins * 60 * 1000) + (wSecs * 1000) + wMillis
-        words.push({ text: wText, startMs: wStartMs, endMs: wStartMs + 400 })
-      }
-
-      if (!hasWords && cleanText) {
-        // Fallback: split words evenly across line duration
-        const wordParts = cleanText.split(/\s+/)
-        const approxDuration = 3000
-        const perWord = approxDuration / Math.max(wordParts.length, 1)
-        wordParts.forEach((w, wIdx) => {
-          const wStart = timestamps[0] + (wIdx * perWord)
-          words.push({ text: w, startMs: wStart, endMs: wStart + perWord })
-        })
-      }
-
-      timestamps.forEach(tMs => {
+      timestamps.forEach((tMs) => {
         lines.push({
           timestampMs: tMs,
+          rawCleanText: cleanText,
           text: cleanText.replace(/<[^>]+>/g, '').trim(),
-          words
+          words: []
         })
       })
     }
   }
 
   lines.sort((a, b) => a.timestampMs - b.timestampMs)
-  // Assign index
-  lines.forEach((l, idx) => { l.index = idx })
+
+  // Build word-level timings after sorting so fallback durations use actual gap to next line
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    line.index = i
+    const nextTimestamp = i < lines.length - 1 ? lines[i + 1].timestampMs : line.timestampMs + 3500
+    const lineDuration = Math.min(6000, Math.max(1200, nextTimestamp - line.timestampMs))
+
+    const wordRegex = /([^<]+)<(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?>/g
+    let wordMatch
+    const words = []
+
+    while ((wordMatch = wordRegex.exec(line.rawCleanText)) !== null) {
+      const wText = wordMatch[1].trim()
+      if (!wText) continue
+      const wMins = parseInt(wordMatch[2], 10)
+      const wSecs = parseInt(wordMatch[3], 10)
+      const wMillisStr = wordMatch[4] || '0'
+      let wMillis = 0
+      if (wMillisStr.length === 1) wMillis = parseInt(wMillisStr, 10) * 100
+      else if (wMillisStr.length === 2) wMillis = parseInt(wMillisStr, 10) * 10
+      else wMillis = parseInt(wMillisStr.slice(0, 3), 10)
+
+      const wStartMs = Math.max(0, wMins * 60 * 1000 + wSecs * 1000 + wMillis + parsedOffsetMs)
+      words.push({ text: wText, startMs: wStartMs, endMs: wStartMs + 400 })
+    }
+
+    if (words.length === 0 && line.text) {
+      const wordParts = line.text.split(/\s+/).filter(Boolean)
+      const perWord = lineDuration / Math.max(wordParts.length, 1)
+      wordParts.forEach((w, wIdx) => {
+        const wStart = line.timestampMs + wIdx * perWord
+        words.push({ text: w, startMs: wStart, endMs: wStart + perWord })
+      })
+    }
+
+    line.words = words
+    delete line.rawCleanText
+  }
 
   return {
-    trackTitle,
-    artistName,
+    trackTitle: parsedTitle,
+    artistName: parsedArtist,
     syncType: hasSynced && lines.length > 0 ? 'SYNCED' : 'PLAIN',
     lines,
-    plainText: rawText
+    plainText: rawText,
+    offsetMs: parsedOffsetMs
   }
 }
 

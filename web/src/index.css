@@ -9,6 +9,100 @@
   }
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes lyricGlassDissolve {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes lyricStageSlide {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lyricSilkFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes lyricSpotlightPop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-slide-left {
+  animation: slideLeft 240ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.lyric-enter-APPLE_GLASS {
+  animation: lyricGlassDissolve var(--lyric-duration, 360ms) cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.lyric-enter-STAGE_SLIDE {
+  animation: lyricStageSlide var(--lyric-duration, 340ms) cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.lyric-enter-SILK_FADE {
+  animation: lyricSilkFade var(--lyric-duration, 400ms) ease-out forwards;
+}
+
+.lyric-enter-SPOTLIGHT_POP {
+  animation: lyricSpotlightPop var(--lyric-duration, 300ms) cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.lyric-enter-TYPEWRITER_SNAP {
+  animation: none;
+}
+
 /* Custom scrollbar for settings drawer */
 ::-webkit-scrollbar {
   width: 6px;
