@@ -83,10 +83,15 @@ class PreferencesDataStore(private val context: Context) {
     }
 
     private fun readFrom(prefs: Preferences): KaraokeStylePreferences {
+        val rawColor = prefs[Keys.COLOR_PRESET]
+        val resolvedColor = when (rawColor) {
+            "ELECTRIC_VIOLET" -> LyricColorPreset.WARM_AMBER
+            else -> rawColor.parseEnum(LyricColorPreset.ALBUM_ART)
+        }
         return KaraokeStylePreferences(
             fontFamily = prefs[Keys.FONT_FAMILY].parseEnum(KaraokeFontFamily.PLUS_JAKARTA_SANS),
             fontSizeSp = (prefs[Keys.FONT_SIZE_SP] ?: 28f).coerceIn(20f, 42f),
-            colorPreset = prefs[Keys.COLOR_PRESET].parseEnum(LyricColorPreset.ALBUM_ART),
+            colorPreset = resolvedColor,
             alignment = prefs[Keys.ALIGNMENT].parseEnum(LyricTextAlignment.CENTER),
             nextLineVisible = prefs[Keys.NEXT_LINE_VISIBLE] ?: true,
             wordByWordEnabled = prefs[Keys.WORD_BY_WORD_ENABLED] ?: true,
@@ -99,7 +104,7 @@ class PreferencesDataStore(private val context: Context) {
             wakeScreenOnLock = prefs[Keys.WAKE_SCREEN_ON_LOCK] ?: true,
             oledPixelShiftEnabled = prefs[Keys.OLED_PIXEL_SHIFT] ?: true,
             keepScreenOnWhilePlaying = prefs[Keys.KEEP_SCREEN_ON] ?: true,
-            useDynamicColor = prefs[Keys.USE_DYNAMIC_COLOR] ?: true,
+            useDynamicColor = prefs[Keys.USE_DYNAMIC_COLOR] ?: false,
             syncOffsetMs = (prefs[Keys.SYNC_OFFSET_MS] ?: 0L).coerceIn(-3000L, 3000L),
             hapticsEnabled = prefs[Keys.HAPTICS_ENABLED] ?: true,
             trackingEnabled = prefs[Keys.TRACKING_ENABLED] ?: true,

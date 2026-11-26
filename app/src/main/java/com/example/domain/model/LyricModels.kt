@@ -85,9 +85,9 @@ enum class LockscreenOrientation(val label: String) {
 enum class LyricColorPreset(val label: String) {
     ALBUM_ART("Album Color"),
     STAGE_WHITE("Pure White"),
-    ELECTRIC_VIOLET("Electric Violet"),
     WARM_AMBER("Stage Amber"),
-    STAGE_CYAN("Neon Cyan"),
+    WARM_IVORY("Warm Ivory"),
+    STAGE_CYAN("Ice Cyan"),
     DYNAMIC_PRIMARY("M3 Accent"),
 }
 
@@ -121,7 +121,7 @@ data class KaraokeStylePreferences(
     val wakeScreenOnLock: Boolean = true,
     val oledPixelShiftEnabled: Boolean = true,
     val keepScreenOnWhilePlaying: Boolean = true,
-    val useDynamicColor: Boolean = true,
+    val useDynamicColor: Boolean = false,
     val syncOffsetMs: Long = 0L,
     val hapticsEnabled: Boolean = true,
     val trackingEnabled: Boolean = true,

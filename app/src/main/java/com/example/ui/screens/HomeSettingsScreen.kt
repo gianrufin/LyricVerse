@@ -1,13 +1,14 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,50 +16,32 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.BatteryChargingFull
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.DeleteSweep
-import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.RadioButtonUnchecked
-import androidx.compose.material.icons.rounded.ScreenRotation
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -68,7 +51,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -76,37 +58,30 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.domain.model.FontCategory
 import com.example.domain.model.KaraokeFontFamily
 import com.example.domain.model.LockscreenOrientation
 import com.example.domain.model.LyricColorPreset
 import com.example.domain.model.LyricDocument
-import com.example.domain.model.LyricSyncType
 import com.example.domain.model.LyricTextAlignment
 import com.example.domain.model.LyricTransitionSpeed
 import com.example.domain.model.LyricTransitionStyle
+import com.example.media.LyricsStageState
 import com.example.ui.LyricVerseUiState
 import com.example.ui.components.AodTwoLineLyricsView
-import com.example.ui.components.DemoTransportBar
-import com.example.ui.components.SyncOffsetCalibrationRow
-import com.example.ui.components.resolveAlbumLightGradient
-import com.example.ui.components.toComposeFontFamily
-import com.example.ui.theme.LyricActive
-import com.example.ui.theme.StageAmber
-import com.example.ui.theme.StageCyan
-import com.example.ui.theme.StageObsidian
-import com.example.ui.theme.StageOutline
-import com.example.ui.theme.StageSurfaceElevated
-import com.example.ui.theme.StageViolet
-import com.example.ui.theme.SuccessMint
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.WarningAmber
-import kotlin.math.roundToInt
+import com.example.ui.theme.HairlineDivider
+import com.example.ui.theme.StageBlack
+import com.example.ui.theme.StatusAttention
+import com.example.ui.theme.StatusError
+import com.example.ui.theme.StatusReady
+import com.example.ui.theme.StudioDimensions
+import com.example.ui.theme.StudioObsidian
+import com.example.ui.theme.StudioOutline
+import com.example.ui.theme.StudioRadii
+import com.example.ui.theme.StudioSpacing
+import com.example.ui.theme.StudioSurfaceElevated
 
 enum class SettingsCategory(
     val label: String,
@@ -171,186 +146,548 @@ fun HomeSettingsScreen(
         Row(
             modifier = modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 14.dp)
-                .testTag("home_settings_screen"),
-            horizontalArrangement = Arrangement.spacedBy(20.dp)
+                .background(StudioObsidian)
+                .testTag("home_settings_screen")
         ) {
             Column(
                 modifier = Modifier
-                    .weight(0.92f)
+                    .weight(0.88f)
                     .fillMaxHeight()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = StudioSpacing.xxl, vertical = StudioSpacing.xl),
+                verticalArrangement = Arrangement.spacedBy(StudioSpacing.lg)
             ) {
-                HeroLaunchSection(
+                DockedStageHeader(
                     uiState = uiState,
+                    compactMode = false,
                     previewTransitionNonce = previewTransitionNonce,
                     onReplayTransition = { previewTransitionNonce++ },
                     onShowLyricsClick = onShowLyricsClick,
                     onPinQuickTileClick = onPinQuickTileClick,
-                    onStartDemoTrack = onStartDemoTrack,
-                    onToggleDemoPlayPause = onToggleDemoPlayPause,
-                    onSeekDemo = onSeekDemo,
-                    onNextDemo = onNextDemo,
-                    onPrevDemo = onPrevDemo,
                 )
             }
-            LazyColumn(
+
+            VerticalDivider(
+                thickness = StudioDimensions.dividerThickness,
+                color = HairlineDivider
+            )
+
+            Column(
                 modifier = Modifier
                     .weight(1.18f)
-                    .fillMaxHeight(),
-                contentPadding = PaddingValues(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .fillMaxHeight()
             ) {
-                item {
-                    CategorySelectorBar(
-                        selected = selectedCategory,
-                        onSelect = { selectedCategory = it }
-                    )
-                }
-                item {
-                    CategorySettingsBody(
-                        selectedCategory = selectedCategory,
-                        uiState = uiState,
-                        onPreviewTransition = { previewTransitionNonce++ },
-                        onSelectFontFamily = onSelectFontFamily,
-                        onFontSizeChange = onFontSizeChange,
-                        onSelectColorPreset = onSelectColorPreset,
-                        onSelectAlignment = onSelectAlignment,
-                        onToggleNextLineVisible = onToggleNextLineVisible,
-                        onToggleWordByWord = onToggleWordByWord,
-                        onToggleGlassBlur = onToggleGlassBlur,
-                        onSelectTransitionStyle = onSelectTransitionStyle,
-                        onSelectTransitionSpeed = onSelectTransitionSpeed,
-                        onToggleShowTrackIntro = onToggleShowTrackIntro,
-                        onSelectLockscreenOrientation = onSelectLockscreenOrientation,
-                        onToggleAutoShowOnLock = onToggleAutoShowOnLock,
-                        onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
-                        onTogglePixelShift = onTogglePixelShift,
-                        onToggleKeepScreenOn = onToggleKeepScreenOn,
-                        onToggleDynamicColor = onToggleDynamicColor,
-                        onToggleHaptics = onToggleHaptics,
-                        onNudgeOffset = onNudgeOffset,
-                        onResetOffset = onResetOffset,
-                        onQueryChange = onQueryChange,
-                        onSearchSubmit = onSearchSubmit,
-                        onLoadManualDocument = onLoadManualDocument,
-                        onOpenListenerSettings = onOpenListenerSettings,
-                        onOpenOverlaySettings = onOpenOverlaySettings,
-                        onRequestPostNotifications = onRequestPostNotifications,
-                        onOpenBatterySettings = onOpenBatterySettings,
-                        onToggleTracking = onToggleTracking,
-                        onToggleLockScreenNotif = onToggleLockScreenNotif,
-                        onToggleOnlineLookup = onToggleOnlineLookup,
-                        onToggleOfflineCache = onToggleOfflineCache,
-                        onClearCache = onClearCache,
-                        onSimulateMissingMetadata = onSimulateMissingMetadata,
-                    )
+                ArchitecturalTabStrip(
+                    selected = selectedCategory,
+                    onSelect = { selectedCategory = it },
+                    horizontalPadding = StudioSpacing.xxl
+                )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        horizontal = StudioSpacing.xxl,
+                        vertical = StudioSpacing.xl
+                    ),
+                ) {
+                    item(key = selectedCategory.name) {
+                        CategorySettingsBody(
+                            selectedCategory = selectedCategory,
+                            uiState = uiState,
+                            onPreviewTransition = { previewTransitionNonce++ },
+                            onStartDemoTrack = onStartDemoTrack,
+                            onToggleDemoPlayPause = onToggleDemoPlayPause,
+                            onSeekDemo = onSeekDemo,
+                            onNextDemo = onNextDemo,
+                            onPrevDemo = onPrevDemo,
+                            onSimulateMissingMetadata = onSimulateMissingMetadata,
+                            onSelectFontFamily = onSelectFontFamily,
+                            onFontSizeChange = onFontSizeChange,
+                            onSelectColorPreset = onSelectColorPreset,
+                            onSelectAlignment = onSelectAlignment,
+                            onToggleNextLineVisible = onToggleNextLineVisible,
+                            onToggleWordByWord = onToggleWordByWord,
+                            onToggleGlassBlur = onToggleGlassBlur,
+                            onSelectTransitionStyle = onSelectTransitionStyle,
+                            onSelectTransitionSpeed = onSelectTransitionSpeed,
+                            onToggleShowTrackIntro = onToggleShowTrackIntro,
+                            onSelectLockscreenOrientation = onSelectLockscreenOrientation,
+                            onToggleAutoShowOnLock = onToggleAutoShowOnLock,
+                            onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
+                            onTogglePixelShift = onTogglePixelShift,
+                            onToggleKeepScreenOn = onToggleKeepScreenOn,
+                            onToggleDynamicColor = onToggleDynamicColor,
+                            onToggleHaptics = onToggleHaptics,
+                            onNudgeOffset = onNudgeOffset,
+                            onResetOffset = onResetOffset,
+                            onQueryChange = onQueryChange,
+                            onSearchSubmit = onSearchSubmit,
+                            onLoadManualDocument = onLoadManualDocument,
+                            onOpenListenerSettings = onOpenListenerSettings,
+                            onOpenOverlaySettings = onOpenOverlaySettings,
+                            onRequestPostNotifications = onRequestPostNotifications,
+                            onOpenBatterySettings = onOpenBatterySettings,
+                            onToggleTracking = onToggleTracking,
+                            onToggleLockScreenNotif = onToggleLockScreenNotif,
+                            onToggleOnlineLookup = onToggleOnlineLookup,
+                            onToggleOfflineCache = onToggleOfflineCache,
+                            onClearCache = onClearCache,
+                        )
+                    }
+                    item { Spacer(modifier = Modifier.height(StudioSpacing.xxl)) }
                 }
             }
         }
     } else {
-        LazyColumn(
+        BoxWithConstraints(
             modifier = modifier
                 .fillMaxSize()
-                .testTag("home_settings_screen"),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .background(StudioObsidian)
+                .testTag("home_settings_screen")
         ) {
-            item {
-                HeroLaunchSection(
-                    uiState = uiState,
-                    previewTransitionNonce = previewTransitionNonce,
-                    onReplayTransition = { previewTransitionNonce++ },
-                    onShowLyricsClick = onShowLyricsClick,
-                    onPinQuickTileClick = onPinQuickTileClick,
-                    onStartDemoTrack = onStartDemoTrack,
-                    onToggleDemoPlayPause = onToggleDemoPlayPause,
-                    onSeekDemo = onSeekDemo,
-                    onNextDemo = onNextDemo,
-                    onPrevDemo = onPrevDemo,
-                )
+            // In split-screen or very short heights, allow the whole surface to scroll
+            // so the settings pane never collapses below usable height.
+            val useUnifiedScroll = maxHeight < 520.dp
+            val compactHeader = maxHeight < 700.dp
+
+            if (useUnifiedScroll) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = StudioSpacing.xxl)
+                ) {
+                    item {
+                        Column(
+                            modifier = Modifier.padding(
+                                horizontal = StudioSpacing.xl,
+                                vertical = StudioSpacing.md
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(StudioSpacing.md)
+                        ) {
+                            DockedStageHeader(
+                                uiState = uiState,
+                                compactMode = true,
+                                previewTransitionNonce = previewTransitionNonce,
+                                onReplayTransition = { previewTransitionNonce++ },
+                                onShowLyricsClick = onShowLyricsClick,
+                                onPinQuickTileClick = onPinQuickTileClick,
+                            )
+                        }
+                    }
+                    item {
+                        ArchitecturalTabStrip(
+                            selected = selectedCategory,
+                            onSelect = { selectedCategory = it },
+                            horizontalPadding = StudioSpacing.xl
+                        )
+                    }
+                    item(key = selectedCategory.name) {
+                        Box(
+                            modifier = Modifier.padding(
+                                horizontal = StudioSpacing.xl,
+                                vertical = StudioSpacing.lg
+                            )
+                        ) {
+                            CategorySettingsBody(
+                                selectedCategory = selectedCategory,
+                                uiState = uiState,
+                                onPreviewTransition = { previewTransitionNonce++ },
+                                onStartDemoTrack = onStartDemoTrack,
+                                onToggleDemoPlayPause = onToggleDemoPlayPause,
+                                onSeekDemo = onSeekDemo,
+                                onNextDemo = onNextDemo,
+                                onPrevDemo = onPrevDemo,
+                                onSimulateMissingMetadata = onSimulateMissingMetadata,
+                                onSelectFontFamily = onSelectFontFamily,
+                                onFontSizeChange = onFontSizeChange,
+                                onSelectColorPreset = onSelectColorPreset,
+                                onSelectAlignment = onSelectAlignment,
+                                onToggleNextLineVisible = onToggleNextLineVisible,
+                                onToggleWordByWord = onToggleWordByWord,
+                                onToggleGlassBlur = onToggleGlassBlur,
+                                onSelectTransitionStyle = onSelectTransitionStyle,
+                                onSelectTransitionSpeed = onSelectTransitionSpeed,
+                                onToggleShowTrackIntro = onToggleShowTrackIntro,
+                                onSelectLockscreenOrientation = onSelectLockscreenOrientation,
+                                onToggleAutoShowOnLock = onToggleAutoShowOnLock,
+                                onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
+                                onTogglePixelShift = onTogglePixelShift,
+                                onToggleKeepScreenOn = onToggleKeepScreenOn,
+                                onToggleDynamicColor = onToggleDynamicColor,
+                                onToggleHaptics = onToggleHaptics,
+                                onNudgeOffset = onNudgeOffset,
+                                onResetOffset = onResetOffset,
+                                onQueryChange = onQueryChange,
+                                onSearchSubmit = onSearchSubmit,
+                                onLoadManualDocument = onLoadManualDocument,
+                                onOpenListenerSettings = onOpenListenerSettings,
+                                onOpenOverlaySettings = onOpenOverlaySettings,
+                                onRequestPostNotifications = onRequestPostNotifications,
+                                onOpenBatterySettings = onOpenBatterySettings,
+                                onToggleTracking = onToggleTracking,
+                                onToggleLockScreenNotif = onToggleLockScreenNotif,
+                                onToggleOnlineLookup = onToggleOnlineLookup,
+                                onToggleOfflineCache = onToggleOfflineCache,
+                                onClearCache = onClearCache,
+                            )
+                        }
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Sticky Docked Stage Preview + Primary Actions
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                start = StudioSpacing.xl,
+                                end = StudioSpacing.xl,
+                                top = StudioSpacing.md,
+                                bottom = StudioSpacing.md
+                            ),
+                        verticalArrangement = Arrangement.spacedBy(if (compactHeader) StudioSpacing.sm else StudioSpacing.md)
+                    ) {
+                        DockedStageHeader(
+                            uiState = uiState,
+                            compactMode = compactHeader,
+                            previewTransitionNonce = previewTransitionNonce,
+                            onReplayTransition = { previewTransitionNonce++ },
+                            onShowLyricsClick = onShowLyricsClick,
+                            onPinQuickTileClick = onPinQuickTileClick,
+                        )
+                    }
+
+                    ArchitecturalTabStrip(
+                        selected = selectedCategory,
+                        onSelect = { selectedCategory = it },
+                        horizontalPadding = StudioSpacing.xl
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentPadding = PaddingValues(
+                            horizontal = StudioSpacing.xl,
+                            vertical = StudioSpacing.lg
+                        )
+                    ) {
+                        item(key = selectedCategory.name) {
+                            CategorySettingsBody(
+                                selectedCategory = selectedCategory,
+                                uiState = uiState,
+                                onPreviewTransition = { previewTransitionNonce++ },
+                                onStartDemoTrack = onStartDemoTrack,
+                                onToggleDemoPlayPause = onToggleDemoPlayPause,
+                                onSeekDemo = onSeekDemo,
+                                onNextDemo = onNextDemo,
+                                onPrevDemo = onPrevDemo,
+                                onSimulateMissingMetadata = onSimulateMissingMetadata,
+                                onSelectFontFamily = onSelectFontFamily,
+                                onFontSizeChange = onFontSizeChange,
+                                onSelectColorPreset = onSelectColorPreset,
+                                onSelectAlignment = onSelectAlignment,
+                                onToggleNextLineVisible = onToggleNextLineVisible,
+                                onToggleWordByWord = onToggleWordByWord,
+                                onToggleGlassBlur = onToggleGlassBlur,
+                                onSelectTransitionStyle = onSelectTransitionStyle,
+                                onSelectTransitionSpeed = onSelectTransitionSpeed,
+                                onToggleShowTrackIntro = onToggleShowTrackIntro,
+                                onSelectLockscreenOrientation = onSelectLockscreenOrientation,
+                                onToggleAutoShowOnLock = onToggleAutoShowOnLock,
+                                onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
+                                onTogglePixelShift = onTogglePixelShift,
+                                onToggleKeepScreenOn = onToggleKeepScreenOn,
+                                onToggleDynamicColor = onToggleDynamicColor,
+                                onToggleHaptics = onToggleHaptics,
+                                onNudgeOffset = onNudgeOffset,
+                                onResetOffset = onResetOffset,
+                                onQueryChange = onQueryChange,
+                                onSearchSubmit = onSearchSubmit,
+                                onLoadManualDocument = onLoadManualDocument,
+                                onOpenListenerSettings = onOpenListenerSettings,
+                                onOpenOverlaySettings = onOpenOverlaySettings,
+                                onRequestPostNotifications = onRequestPostNotifications,
+                                onOpenBatterySettings = onOpenBatterySettings,
+                                onToggleTracking = onToggleTracking,
+                                onToggleLockScreenNotif = onToggleLockScreenNotif,
+                                onToggleOnlineLookup = onToggleOnlineLookup,
+                                onToggleOfflineCache = onToggleOfflineCache,
+                                onClearCache = onClearCache,
+                            )
+                        }
+                        item { Spacer(modifier = Modifier.height(StudioSpacing.xl)) }
+                    }
+                }
             }
-            item {
-                CategorySelectorBar(
-                    selected = selectedCategory,
-                    onSelect = { selectedCategory = it }
-                )
-            }
-            item {
-                CategorySettingsBody(
-                    selectedCategory = selectedCategory,
-                    uiState = uiState,
-                    onPreviewTransition = { previewTransitionNonce++ },
-                    onSelectFontFamily = onSelectFontFamily,
-                    onFontSizeChange = onFontSizeChange,
-                    onSelectColorPreset = onSelectColorPreset,
-                    onSelectAlignment = onSelectAlignment,
-                    onToggleNextLineVisible = onToggleNextLineVisible,
-                    onToggleWordByWord = onToggleWordByWord,
-                    onToggleGlassBlur = onToggleGlassBlur,
-                    onSelectTransitionStyle = onSelectTransitionStyle,
-                    onSelectTransitionSpeed = onSelectTransitionSpeed,
-                    onToggleShowTrackIntro = onToggleShowTrackIntro,
-                    onSelectLockscreenOrientation = onSelectLockscreenOrientation,
-                    onToggleAutoShowOnLock = onToggleAutoShowOnLock,
-                    onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
-                    onTogglePixelShift = onTogglePixelShift,
-                    onToggleKeepScreenOn = onToggleKeepScreenOn,
-                    onToggleDynamicColor = onToggleDynamicColor,
-                    onToggleHaptics = onToggleHaptics,
-                    onNudgeOffset = onNudgeOffset,
-                    onResetOffset = onResetOffset,
-                    onQueryChange = onQueryChange,
-                    onSearchSubmit = onSearchSubmit,
-                    onLoadManualDocument = onLoadManualDocument,
-                    onOpenListenerSettings = onOpenListenerSettings,
-                    onOpenOverlaySettings = onOpenOverlaySettings,
-                    onRequestPostNotifications = onRequestPostNotifications,
-                    onOpenBatterySettings = onOpenBatterySettings,
-                    onToggleTracking = onToggleTracking,
-                    onToggleLockScreenNotif = onToggleLockScreenNotif,
-                    onToggleOnlineLookup = onToggleOnlineLookup,
-                    onToggleOfflineCache = onToggleOfflineCache,
-                    onClearCache = onClearCache,
-                    onSimulateMissingMetadata = onSimulateMissingMetadata,
-                )
-            }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 }
 
 @Composable
-private fun CategorySelectorBar(
-    selected: SettingsCategory,
-    onSelect: (SettingsCategory) -> Unit,
+private fun DockedStageHeader(
+    uiState: LyricVerseUiState,
+    compactMode: Boolean,
+    previewTransitionNonce: Int,
+    onReplayTransition: () -> Unit,
+    onShowLyricsClick: () -> Unit,
+    onPinQuickTileClick: () -> Unit,
 ) {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth()
+    val sync = uiState.syncState
+    val prefs = sync.preferences
+    val snap = sync.snapshot
+    val haptics = LocalHapticFeedback.current
+    var previewIntroNonce by remember { mutableIntStateOf(0) }
+
+    val (statusLabel, statusDotColor) = when {
+        sync.lyricsState is LyricsStageState.Loading -> "Looking up…" to MaterialTheme.colorScheme.primary
+        sync.lyricsState is LyricsStageState.Unavailable -> "AOD Blank · No Lyrics" to StatusError
+        snap.hasValidMetadata && snap.isPlaying && sync.hasDisplayableLyrics -> "Lyrics Ready" to StatusReady
+        prefs.autoShowOnLockEnabled -> "Auto-Lock Armed" to MaterialTheme.colorScheme.primary
+        uiState.permissions.notificationListenerGranted -> "Listener Active" to StatusReady
+        else -> "Listener Needed" to StatusAttention
+    }
+
+    // Studio Header Row (no pill badge bloat)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        items(SettingsCategory.entries) { category ->
-            val isSelected = selected == category
-            FilterChip(
-                selected = isSelected,
-                onClick = { onSelect(category) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = category.icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+        Column(modifier = Modifier.weight(1f).padding(end = StudioSpacing.md)) {
+            Text(
+                text = "LyricVerse",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = when {
+                    snap.hasValidMetadata -> "${snap.trackTitle} · ${snap.artistName}"
+                    else -> "Pure #000000 lock-screen lyric instrument"
                 },
-                label = {
-                    Text(
-                        text = category.label,
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                },
-                modifier = Modifier.testTag(category.tag)
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(statusDotColor)
+            )
+            Text(
+                text = statusLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
+    }
+
+    // Pure #000000 AMOLED Stage Preview
+    Surface(
+        color = StageBlack,
+        shape = RoundedCornerShape(StudioRadii.frame),
+        border = BorderStroke(StudioDimensions.dividerThickness, StudioOutline),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = StudioSpacing.lg,
+                        vertical = if (compactMode) StudioSpacing.lg else StudioSpacing.xxl
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                AodTwoLineLyricsView(
+                    state = sync,
+                    isPreview = true,
+                    introTriggerNonce = previewIntroNonce,
+                    transitionReplayNonce = previewTransitionNonce,
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = StudioSpacing.sm),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (sync.lyricsState is LyricsStageState.Unavailable) {
+                    Text(
+                        text = "Lock screen stays blank #000000",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = StatusError,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = StudioSpacing.sm)
+                    )
+                } else {
+                    Spacer(modifier = Modifier.width(1.dp))
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(
+                        onClick = onReplayTransition,
+                        modifier = Modifier.heightIn(min = StudioDimensions.minTouchTarget)
+                    ) {
+                        Text(
+                            text = "Preview Effect",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (snap.hasValidMetadata && sync.hasDisplayableLyrics && prefs.showTrackIntroOnStart) {
+                        TextButton(
+                            onClick = { previewIntroNonce++ },
+                            modifier = Modifier
+                                .heightIn(min = StudioDimensions.minTouchTarget)
+                                .testTag("preview_intro_button")
+                        ) {
+                            Text(
+                                text = "Title Intro",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Primary & Secondary Launch Actions
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(StudioSpacing.sm)
+    ) {
+        Button(
+            onClick = {
+                if (prefs.hapticsEnabled) {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                }
+                onShowLyricsClick()
+            },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
+            shape = RoundedCornerShape(StudioRadii.frame),
+            modifier = Modifier
+                .weight(1.35f)
+                .height(StudioDimensions.primaryActionHeight)
+                .testTag("show_lyrics_button")
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Lyrics,
+                contentDescription = stringResource(R.string.cd_show_lyrics),
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(StudioSpacing.sm))
+            Text(
+                text = "Show Lyrics",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        OutlinedButton(
+            onClick = {
+                if (prefs.hapticsEnabled) {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+                onPinQuickTileClick()
+            },
+            shape = RoundedCornerShape(StudioRadii.frame),
+            border = BorderStroke(1.dp, StudioOutline),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = StudioSurfaceElevated,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            modifier = Modifier
+                .weight(0.95f)
+                .height(StudioDimensions.primaryActionHeight)
+                .testTag("pin_qs_tile_button")
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.AddToHomeScreen,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "AOD Tile",
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun ArchitecturalTabStrip(
+    selected: SettingsCategory,
+    onSelect: (SettingsCategory) -> Unit,
+    horizontalPadding: androidx.compose.ui.unit.Dp,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = horizontalPadding),
+            horizontalArrangement = Arrangement.spacedBy(StudioSpacing.xl),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SettingsCategory.entries.forEach { category ->
+                val isSelected = selected == category
+                Column(
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .clip(RoundedCornerShape(topStart = StudioRadii.micro, topEnd = StudioRadii.micro))
+                        .clickable { onSelect(category) }
+                        .padding(top = StudioSpacing.sm)
+                        .testTag(category.tag),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(bottom = StudioSpacing.sm)
+                    ) {
+                        Icon(
+                            imageVector = category.icon,
+                            contentDescription = null,
+                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = category.label,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .width(44.dp)
+                            .height(2.dp)
+                            .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    )
+                }
+            }
+        }
+        StudioHairlineDivider()
     }
 }
 
@@ -359,6 +696,12 @@ private fun CategorySettingsBody(
     selectedCategory: SettingsCategory,
     uiState: LyricVerseUiState,
     onPreviewTransition: () -> Unit,
+    onStartDemoTrack: (Int) -> Unit,
+    onToggleDemoPlayPause: () -> Unit,
+    onSeekDemo: (Long) -> Unit,
+    onNextDemo: () -> Unit,
+    onPrevDemo: () -> Unit,
+    onSimulateMissingMetadata: () -> Unit,
     onSelectFontFamily: (KaraokeFontFamily) -> Unit,
     onFontSizeChange: (Float) -> Unit,
     onSelectColorPreset: (LyricColorPreset) -> Unit,
@@ -390,10 +733,9 @@ private fun CategorySettingsBody(
     onToggleOnlineLookup: (Boolean) -> Unit,
     onToggleOfflineCache: (Boolean) -> Unit,
     onClearCache: () -> Unit,
-    onSimulateMissingMetadata: () -> Unit,
 ) {
     when (selectedCategory) {
-        SettingsCategory.THEME -> ThemeDesignCategoryCard(
+        SettingsCategory.THEME -> ThemeSettingsSection(
             uiState = uiState,
             onSelectFontFamily = onSelectFontFamily,
             onFontSizeChange = onFontSizeChange,
@@ -401,7 +743,7 @@ private fun CategorySettingsBody(
             onSelectAlignment = onSelectAlignment,
             onToggleDynamicColor = onToggleDynamicColor,
         )
-        SettingsCategory.TRANSITIONS -> TransitionsEffectsCategoryCard(
+        SettingsCategory.TRANSITIONS -> TransitionsSettingsSection(
             uiState = uiState,
             onSelectTransitionStyle = { style ->
                 onSelectTransitionStyle(style)
@@ -418,7 +760,7 @@ private fun CategorySettingsBody(
             onNudgeOffset = onNudgeOffset,
             onResetOffset = onResetOffset,
         )
-        SettingsCategory.LOCK_AOD -> LockScreenAodCategoryCard(
+        SettingsCategory.LOCK_AOD -> LockAodSettingsSection(
             uiState = uiState,
             onToggleAutoShowOnLock = onToggleAutoShowOnLock,
             onToggleWakeScreenOnLock = onToggleWakeScreenOnLock,
@@ -428,11 +770,17 @@ private fun CategorySettingsBody(
             onToggleKeepScreenOn = onToggleKeepScreenOn,
             onToggleHaptics = onToggleHaptics,
         )
-        SettingsCategory.SOURCES -> SourcesPermissionsCategoryCard(
+        SettingsCategory.SOURCES -> SourcesCalibrationSection(
             uiState = uiState,
             onQueryChange = onQueryChange,
             onSearchSubmit = onSearchSubmit,
             onLoadManualDocument = onLoadManualDocument,
+            onStartDemoTrack = onStartDemoTrack,
+            onToggleDemoPlayPause = onToggleDemoPlayPause,
+            onSeekDemo = onSeekDemo,
+            onNextDemo = onNextDemo,
+            onPrevDemo = onPrevDemo,
+            onSimulateMissingMetadata = onSimulateMissingMetadata,
             onOpenListenerSettings = onOpenListenerSettings,
             onRequestPostNotifications = onRequestPostNotifications,
             onOpenBatterySettings = onOpenBatterySettings,
@@ -441,937 +789,6 @@ private fun CategorySettingsBody(
             onToggleOnlineLookup = onToggleOnlineLookup,
             onToggleOfflineCache = onToggleOfflineCache,
             onClearCache = onClearCache,
-            onSimulateMissingMetadata = onSimulateMissingMetadata,
         )
-    }
-}
-
-@Composable
-private fun HeroLaunchSection(
-    uiState: LyricVerseUiState,
-    previewTransitionNonce: Int,
-    onReplayTransition: () -> Unit,
-    onShowLyricsClick: () -> Unit,
-    onPinQuickTileClick: () -> Unit,
-    onStartDemoTrack: (Int) -> Unit,
-    onToggleDemoPlayPause: () -> Unit,
-    onSeekDemo: (Long) -> Unit,
-    onNextDemo: () -> Unit,
-    onPrevDemo: () -> Unit,
-) {
-    val sync = uiState.syncState
-    val prefs = sync.preferences
-    val snap = sync.snapshot
-    val haptics = LocalHapticFeedback.current
-    var previewIntroNonce by remember { mutableIntStateOf(0) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "LyricVerse",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = LyricActive
-                )
-                Text(
-                    text = if (snap.hasValidMetadata) {
-                        "${snap.trackTitle} · ${snap.artistName}"
-                    } else {
-                        "AMOLED lock-screen & karaoke settings"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Surface(
-                color = if (prefs.autoShowOnLockEnabled) {
-                    StageViolet.copy(alpha = 0.2f)
-                } else if (uiState.permissions.notificationListenerGranted) {
-                    SuccessMint.copy(alpha = 0.14f)
-                } else {
-                    StageAmber.copy(alpha = 0.14f)
-                },
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = when {
-                        prefs.autoShowOnLockEnabled -> "AUTO LOCK AOD"
-                        uiState.permissions.notificationListenerGranted -> "LISTENER ON"
-                        else -> "DEMO READY"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = when {
-                        prefs.autoShowOnLockEnabled -> StageViolet
-                        uiState.permissions.notificationListenerGranted -> SuccessMint
-                        else -> StageAmber
-                    },
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                )
-            }
-        }
-
-        // Pure #000000 AMOLED live preview card
-        Surface(
-            color = Color.Black,
-            shape = RoundedCornerShape(24.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, StageOutline, RoundedCornerShape(24.dp))
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AodTwoLineLyricsView(
-                        state = sync,
-                        isPreview = true,
-                        introTriggerNonce = previewIntroNonce,
-                        transitionReplayNonce = previewTransitionNonce,
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onReplayTransition) {
-                        Text(
-                            text = "Preview Effect",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted
-                        )
-                    }
-                    if (snap.hasValidMetadata && sync.hasDisplayableLyrics && prefs.showTrackIntroOnStart) {
-                        TextButton(
-                            onClick = { previewIntroNonce++ },
-                            modifier = Modifier.testTag("preview_intro_button")
-                        ) {
-                            Text(
-                                text = "Title Intro",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Primary Show Lyrics button + Pin Quick Settings Tile
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Button(
-                onClick = {
-                    if (prefs.hapticsEnabled) {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    }
-                    onShowLyricsClick()
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                shape = RoundedCornerShape(18.dp),
-                modifier = Modifier
-                    .weight(1.3f)
-                    .height(54.dp)
-                    .testTag("show_lyrics_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Lyrics,
-                    contentDescription = stringResource(R.string.cd_show_lyrics),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Show Lyrics",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            FilledTonalButton(
-                onClick = {
-                    if (prefs.hapticsEnabled) {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    }
-                    onPinQuickTileClick()
-                },
-                shape = RoundedCornerShape(18.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(54.dp)
-                    .testTag("pin_qs_tile_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.AddToHomeScreen,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "AOD Tile",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-
-        // Quick Demo Track Switcher for immediate karaoke testing
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            itemsIndexed(uiState.demoCatalog) { index, track ->
-                val selected = snap.isDemoMode && snap.trackTitle == track.title
-                FilterChip(
-                    selected = selected,
-                    onClick = { onStartDemoTrack(index) },
-                    label = {
-                        Text(
-                            "${track.title} (${if (track.syncedLrc != null) "Synced" else "Plain"})",
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Rounded.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(15.dp)
-                        )
-                    },
-                    modifier = Modifier.testTag("demo_chip_$index")
-                )
-            }
-        }
-
-        if (snap.isDemoMode && snap.hasValidMetadata) {
-            DemoTransportBar(
-                isPlaying = snap.isPlaying,
-                positionMs = sync.livePositionMs,
-                durationMs = snap.durationMs,
-                hapticsEnabled = prefs.hapticsEnabled,
-                onPrevious = onPrevDemo,
-                onTogglePlayPause = onToggleDemoPlayPause,
-                onNext = onNextDemo,
-                onSeek = onSeekDemo,
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ThemeDesignCategoryCard(
-    uiState: LyricVerseUiState,
-    onSelectFontFamily: (KaraokeFontFamily) -> Unit,
-    onFontSizeChange: (Float) -> Unit,
-    onSelectColorPreset: (LyricColorPreset) -> Unit,
-    onSelectAlignment: (LyricTextAlignment) -> Unit,
-    onToggleDynamicColor: (Boolean) -> Unit,
-) {
-    val prefs = uiState.syncState.preferences
-    val snap = uiState.syncState.snapshot
-    val haptics = LocalHapticFeedback.current
-    var activeFontCategory by remember(prefs.fontFamily) { mutableStateOf(prefs.fontFamily.category) }
-    val fontsForCategory = remember(activeFontCategory) {
-        KaraokeFontFamily.entries.filter { it.category == activeFontCategory }
-    }
-    val albumColors = remember(snap.albumLightColors, snap.trackSignatureKey) {
-        resolveAlbumLightGradient(snap)
-    }
-
-    SettingsCard(title = "Theme & Typography") {
-        // Compact Font Header + 2-Category Segmented Toggle
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Font Style",
-                style = MaterialTheme.typography.labelLarge,
-                color = LyricActive
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FontCategory.entries.forEach { category ->
-                    val selected = activeFontCategory == category
-                    Surface(
-                        color = if (selected) MaterialTheme.colorScheme.primaryContainer else StageObsidian,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .border(
-                                width = 1.dp,
-                                color = if (selected) MaterialTheme.colorScheme.primary else StageOutline,
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            .clickable { activeFontCategory = category }
-                            .testTag("font_cat_${category.name.lowercase()}")
-                    ) {
-                        Text(
-                            text = category.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else TextMuted,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Compact single-row scrollable pill selector
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            items(fontsForCategory) { family ->
-                val selected = prefs.fontFamily == family
-                Surface(
-                    color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else StageObsidian,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .height(34.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .border(
-                            width = if (selected) 1.5.dp else 1.dp,
-                            color = if (selected) MaterialTheme.colorScheme.primary else StageOutline,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .clickable {
-                            if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onSelectFontFamily(family)
-                        }
-                        .testTag("font_${family.name.lowercase()}")
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.padding(horizontal = 12.dp)
-                    ) {
-                        Text(
-                            text = family.label,
-                            fontFamily = family.toComposeFontFamily(),
-                            fontSize = 13.sp,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selected) LyricActive else TextMuted,
-                            maxLines = 1
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(2.dp))
-
-        // Color & Album Light Gradient Selector
-        Text(
-            text = "Lyric Color & Album Gradient",
-            style = MaterialTheme.typography.labelLarge,
-            color = LyricActive
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            LyricColorPreset.entries.forEach { preset ->
-                FilterChip(
-                    selected = prefs.colorPreset == preset,
-                    onClick = {
-                        if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSelectColorPreset(preset)
-                    },
-                    leadingIcon = {
-                        val swatchModifier = Modifier
-                            .size(14.dp)
-                            .clip(CircleShape)
-                        when (preset) {
-                            LyricColorPreset.ALBUM_ART -> Box(
-                                modifier = swatchModifier.background(Brush.linearGradient(albumColors))
-                            )
-                            LyricColorPreset.STAGE_WHITE -> Box(modifier = swatchModifier.background(Color.White))
-                            LyricColorPreset.ELECTRIC_VIOLET -> Box(modifier = swatchModifier.background(StageViolet))
-                            LyricColorPreset.WARM_AMBER -> Box(modifier = swatchModifier.background(StageAmber))
-                            LyricColorPreset.STAGE_CYAN -> Box(modifier = swatchModifier.background(StageCyan))
-                            LyricColorPreset.DYNAMIC_PRIMARY -> Box(
-                                modifier = swatchModifier.background(MaterialTheme.colorScheme.primary)
-                            )
-                        }
-                    },
-                    label = { Text(preset.label, style = MaterialTheme.typography.labelMedium) },
-                    modifier = Modifier.testTag("color_${preset.name.lowercase()}")
-                )
-            }
-        }
-
-        Text(
-            text = "Lyric Size: ${prefs.fontSizeSp.roundToInt()} sp",
-            style = MaterialTheme.typography.labelLarge,
-            color = LyricActive
-        )
-        Slider(
-            value = prefs.fontSizeSp,
-            onValueChange = onFontSizeChange,
-            valueRange = 20f..42f
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Alignment",
-                style = MaterialTheme.typography.labelLarge,
-                color = LyricActive
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                LyricTextAlignment.entries.forEach { align ->
-                    FilterChip(
-                        selected = prefs.alignment == align,
-                        onClick = {
-                            if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onSelectAlignment(align)
-                        },
-                        label = { Text(align.label, style = MaterialTheme.typography.labelSmall) }
-                    )
-                }
-            }
-        }
-
-        SettingsSwitchRow(
-            title = "Dynamic Material You Accents",
-            subtitle = "Tints settings controls with system wallpaper accents on Android 12+",
-            checked = prefs.useDynamicColor,
-            onCheckedChange = onToggleDynamicColor,
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun TransitionsEffectsCategoryCard(
-    uiState: LyricVerseUiState,
-    onSelectTransitionStyle: (LyricTransitionStyle) -> Unit,
-    onSelectTransitionSpeed: (LyricTransitionSpeed) -> Unit,
-    onToggleWordByWord: (Boolean) -> Unit,
-    onToggleGlassBlur: (Boolean) -> Unit,
-    onToggleShowTrackIntro: (Boolean) -> Unit,
-    onToggleNextLineVisible: (Boolean) -> Unit,
-    onNudgeOffset: (Long) -> Unit,
-    onResetOffset: () -> Unit,
-) {
-    val prefs = uiState.syncState.preferences
-    val haptics = LocalHapticFeedback.current
-
-    SettingsCard(title = "Transitions, Effects & Sync") {
-        Text(
-            text = "Lyric Transition Style",
-            style = MaterialTheme.typography.labelLarge,
-            color = LyricActive
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            LyricTransitionStyle.entries.forEach { style ->
-                FilterChip(
-                    selected = prefs.transitionStyle == style,
-                    onClick = {
-                        if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSelectTransitionStyle(style)
-                    },
-                    label = { Text(style.label, style = MaterialTheme.typography.labelMedium) },
-                    modifier = Modifier.testTag("transition_${style.name.lowercase()}")
-                )
-            }
-        }
-        Text(
-            text = prefs.transitionStyle.description,
-            style = MaterialTheme.typography.bodySmall,
-            color = TextMuted
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Transition Pace",
-                style = MaterialTheme.typography.labelLarge,
-                color = LyricActive
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                LyricTransitionSpeed.entries.forEach { speed ->
-                    FilterChip(
-                        selected = prefs.transitionSpeed == speed,
-                        onClick = {
-                            if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onSelectTransitionSpeed(speed)
-                        },
-                        label = { Text(speed.label, style = MaterialTheme.typography.labelSmall) },
-                        modifier = Modifier.testTag("speed_${speed.name.lowercase()}")
-                    )
-                }
-            }
-        }
-
-        SettingsSwitchRow(
-            title = "Word-by-Word Lyrics Reveal",
-            subtitle = "Paces each word smoothly with the song (enhanced LRC tags or syllable cadence)",
-            checked = prefs.wordByWordEnabled,
-            onCheckedChange = onToggleWordByWord,
-            testTag = "word_by_word_switch"
-        )
-        SettingsSwitchRow(
-            title = "Apple-Style Glass Blur",
-            subtitle = "Briefly blurs incoming lines and upcoming words before snapping crisp (Android 12+)",
-            checked = prefs.glassBlurEnabled,
-            onCheckedChange = onToggleGlassBlur,
-            testTag = "glass_blur_switch"
-        )
-        SettingsSwitchRow(
-            title = "Song Title & Artist Intro",
-            subtitle = "Briefly shows track title and artist when a new song starts, then reveals lyrics",
-            checked = prefs.showTrackIntroOnStart,
-            onCheckedChange = onToggleShowTrackIntro,
-            testTag = "track_intro_switch"
-        )
-        SettingsSwitchRow(
-            title = "Show Upcoming Next Line",
-            subtitle = "Displays dimmed next line below active line on pure #000000",
-            checked = prefs.nextLineVisible,
-            onCheckedChange = onToggleNextLineVisible,
-        )
-
-        SyncOffsetCalibrationRow(
-            offsetMs = prefs.syncOffsetMs,
-            hapticsEnabled = prefs.hapticsEnabled,
-            onNudge = onNudgeOffset,
-            onReset = onResetOffset
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun LockScreenAodCategoryCard(
-    uiState: LyricVerseUiState,
-    onToggleAutoShowOnLock: (Boolean) -> Unit,
-    onToggleWakeScreenOnLock: (Boolean) -> Unit,
-    onSelectLockscreenOrientation: (LockscreenOrientation) -> Unit,
-    onOpenOverlaySettings: () -> Unit,
-    onTogglePixelShift: (Boolean) -> Unit,
-    onToggleKeepScreenOn: (Boolean) -> Unit,
-    onToggleHaptics: (Boolean) -> Unit,
-) {
-    val prefs = uiState.syncState.preferences
-    val perms = uiState.permissions
-    val haptics = LocalHapticFeedback.current
-
-    SettingsCard(title = "Lock-Screen AOD & Panel Protection") {
-        SettingsSwitchRow(
-            title = "Auto-Show on Lock Screen",
-            subtitle = "Opens AMOLED lyrics when locked during a song; stays off for podcasts, vlogs, or unavailable lyrics",
-            checked = prefs.autoShowOnLockEnabled,
-            onCheckedChange = onToggleAutoShowOnLock,
-            testTag = "auto_show_lock_switch"
-        )
-
-        if (prefs.autoShowOnLockEnabled) {
-            SettingsSwitchRow(
-                title = "Wake Into Black AOD on Lock",
-                subtitle = "Brings up pure #000000 lyrics immediately when locked while playing",
-                checked = prefs.wakeScreenOnLock,
-                onCheckedChange = onToggleWakeScreenOnLock,
-                testTag = "wake_on_lock_switch"
-            )
-
-            PermissionRow(
-                title = "Display Over Apps (Auto-Lock Trigger)",
-                subtitle = "Optional on Android 10+ so background players (Spotify, Apple Music) can launch lock-screen lyrics automatically.",
-                granted = perms.overlayPermissionGranted,
-                buttonLabel = if (perms.overlayPermissionGranted) "Allowed" else "Allow",
-                testTag = "grant_overlay_button",
-                onClick = onOpenOverlaySettings,
-            )
-        }
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Rounded.ScreenRotation,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Lockscreen Orientation",
-                style = MaterialTheme.typography.labelLarge,
-                color = LyricActive
-            )
-        }
-
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LockscreenOrientation.entries.forEach { orientation ->
-                FilterChip(
-                    selected = prefs.lockscreenOrientation == orientation,
-                    onClick = {
-                        if (prefs.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSelectLockscreenOrientation(orientation)
-                    },
-                    label = { Text(orientation.label) },
-                    modifier = Modifier.testTag("orientation_${orientation.name.lowercase()}")
-                )
-            }
-        }
-
-        SettingsSwitchRow(
-            title = "OLED Burn-In Pixel Shift",
-            subtitle = "Gently drifts lyrics every 20s to protect AMOLED panels",
-            checked = prefs.oledPixelShiftEnabled,
-            onCheckedChange = onTogglePixelShift,
-            testTag = "pixel_shift_switch"
-        )
-        SettingsSwitchRow(
-            title = "Keep Screen On While Playing",
-            subtitle = "Automatically allows screen sleep when playback pauses or ends",
-            checked = prefs.keepScreenOnWhilePlaying,
-            onCheckedChange = onToggleKeepScreenOn,
-        )
-        SettingsSwitchRow(
-            title = "Restrained Haptics",
-            subtitle = "Subtle tactile confirmation on Show Lyrics and design adjustments",
-            checked = prefs.hapticsEnabled,
-            onCheckedChange = onToggleHaptics,
-            testTag = "haptics_switch"
-        )
-    }
-}
-
-@Composable
-private fun SourcesPermissionsCategoryCard(
-    uiState: LyricVerseUiState,
-    onQueryChange: (String) -> Unit,
-    onSearchSubmit: () -> Unit,
-    onLoadManualDocument: (LyricDocument) -> Unit,
-    onOpenListenerSettings: () -> Unit,
-    onRequestPostNotifications: () -> Unit,
-    onOpenBatterySettings: () -> Unit,
-    onToggleTracking: (Boolean) -> Unit,
-    onToggleLockScreenNotif: (Boolean) -> Unit,
-    onToggleOnlineLookup: (Boolean) -> Unit,
-    onToggleOfflineCache: (Boolean) -> Unit,
-    onClearCache: () -> Unit,
-    onSimulateMissingMetadata: () -> Unit,
-) {
-    val perms = uiState.permissions
-    val prefs = uiState.syncState.preferences
-    val diag = uiState.diagnostics
-    val library = uiState.searchLibrary
-
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SettingsCard(title = "Manual Track Lookup") {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = library.query,
-                    onValueChange = onQueryChange,
-                    label = { Text("Search song or artist") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { onSearchSubmit() }),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("search_input")
-                )
-                Button(
-                    onClick = onSearchSubmit,
-                    modifier = Modifier
-                        .height(54.dp)
-                        .testTag("search_button")
-                ) {
-                    Icon(Icons.Rounded.Search, contentDescription = "Search lyrics")
-                }
-            }
-
-            if (library.isSearching) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                }
-            }
-
-            library.results.take(4).forEach { doc ->
-                Surface(
-                    color = StageObsidian.copy(alpha = 0.78f),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = doc.trackTitle,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = LyricActive,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "${doc.artistName} · ${if (doc.syncType == LyricSyncType.SYNCED) "Synced LRC" else "Plain"}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        OutlinedButton(onClick = { onLoadManualDocument(doc) }) {
-                            Text("Load")
-                        }
-                    }
-                }
-            }
-        }
-
-        SettingsCard(title = "Music Access, Cache & Rules") {
-            SettingsSwitchRow(
-                title = "Track Compatible Music Apps",
-                subtitle = "Reads active MediaSession metadata & album colors without altering audio",
-                checked = prefs.trackingEnabled,
-                onCheckedChange = onToggleTracking,
-                testTag = "tracking_switch"
-            )
-
-            PermissionRow(
-                title = "Notification Listener Access",
-                subtitle = "Required to detect songs in Spotify, Apple Music, or local players. Revoke anytime in Settings.",
-                granted = perms.notificationListenerGranted,
-                buttonLabel = if (perms.notificationListenerGranted) "Manage" else "Grant Access",
-                testTag = "grant_listener_button",
-                onClick = onOpenListenerSettings,
-            )
-
-            SettingsSwitchRow(
-                title = "Minimal Lock-Screen Notification",
-                subtitle = "Optional ongoing notification showing active lyric lines on supported lock screens",
-                checked = prefs.lockScreenNotificationEnabled,
-                onCheckedChange = onToggleLockScreenNotif,
-                testTag = "lock_notif_switch"
-            )
-
-            if (!perms.postNotificationsGranted) {
-                PermissionRow(
-                    title = "Post Notifications (Android 13+)",
-                    subtitle = "Needed for the ongoing Lock-Screen Companion notification and Auto-Show status.",
-                    granted = false,
-                    buttonLabel = "Allow",
-                    testTag = "grant_notifications_button",
-                    onClick = onRequestPostNotifications,
-                )
-            }
-
-            SettingsSwitchRow(
-                title = "LRCLIB Online Lookup",
-                subtitle = "Sends only track title, artist, album & duration (no account or audio)",
-                checked = prefs.onlineLookupEnabled,
-                onCheckedChange = onToggleOnlineLookup,
-                testTag = "online_lookup_switch"
-            )
-
-            SettingsSwitchRow(
-                title = "Permitted Offline Lyrics Cache",
-                subtitle = "Caches matches locally for 14 days (3 days for misses) when allowed",
-                checked = prefs.offlineCacheEnabled,
-                onCheckedChange = onToggleOfflineCache,
-                testTag = "offline_cache_switch"
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onClearCache,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("clear_cache_button")
-                ) {
-                    Icon(Icons.Rounded.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Clear Cache (${uiState.searchLibrary.cachedEntries.size})")
-                }
-
-                OutlinedButton(
-                    onClick = onOpenBatterySettings,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("battery_settings_button")
-                ) {
-                    Icon(Icons.Rounded.BatteryChargingFull, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Battery")
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Sessions: ${diag.activeSessionsCount} · ${diag.selectedAppLabel ?: "None"}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted
-                )
-                OutlinedButton(
-                    onClick = onSimulateMissingMetadata,
-                    modifier = Modifier.testTag("simulate_missing_metadata_button")
-                ) {
-                    Text("Test Missing Metadata")
-                }
-            }
-
-            Surface(
-                color = StageObsidian.copy(alpha = 0.8f),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Lock, contentDescription = null, tint = StageViolet, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "About Lock-Screen & System AOD",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = LyricActive
-                        )
-                    }
-                    Text(
-                        text = "Android reserves the OEM hardware Doze AOD exclusively for SystemUI and blocks floating windows over the keyguard. When 'Auto-Show on Lock Screen' is enabled, LyricVerse listens for screen-lock events during active playback and launches its pure #000000 AMOLED lyrics screen on top of the lock screen without bypassing your unlock security.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.DirectionsCar, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Android Auto head units are excluded for driver safety; playback continues undisturbed.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextMuted
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsCard(
-    title: String,
-    content: @Composable () -> Unit,
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = StageSurfaceElevated),
-        shape = RoundedCornerShape(22.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = LyricActive
-            )
-            content()
-        }
-    }
-}
-
-@Composable
-private fun SettingsSwitchRow(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    testTag: String? = null,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(text = title, style = MaterialTheme.typography.titleSmall, color = LyricActive)
-            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            modifier = if (testTag != null) Modifier.testTag(testTag) else Modifier
-        )
-    }
-}
-
-@Composable
-private fun PermissionRow(
-    title: String,
-    subtitle: String,
-    granted: Boolean,
-    buttonLabel: String,
-    testTag: String,
-    onClick: () -> Unit,
-) {
-    Surface(
-        color = StageObsidian.copy(alpha = 0.72f),
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(modifier = Modifier.weight(1f).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = if (granted) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                    contentDescription = null,
-                    tint = if (granted) SuccessMint else WarningAmber,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(text = title, style = MaterialTheme.typography.titleSmall, color = LyricActive)
-                    Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
-                }
-            }
-            FilledTonalButton(
-                onClick = onClick,
-                modifier = Modifier.testTag(testTag)
-            ) {
-                Text(buttonLabel)
-            }
-        }
     }
 }

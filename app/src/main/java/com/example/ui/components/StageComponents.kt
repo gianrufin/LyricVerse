@@ -14,6 +14,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -92,9 +94,9 @@ import com.example.ui.theme.CinzelFontFamily
 import com.example.ui.theme.CormorantGaramondFamily
 import com.example.ui.theme.DmSansFontFamily
 import com.example.ui.theme.FrauncesFontFamily
+import com.example.ui.theme.HairlineDivider
 import com.example.ui.theme.InstrumentSerifFamily
 import com.example.ui.theme.JetBrainsMonoFamily
-import com.example.ui.theme.LyricActive
 import com.example.ui.theme.LyricPast
 import com.example.ui.theme.OutfitFontFamily
 import com.example.ui.theme.PlayfairDisplayFamily
@@ -103,11 +105,15 @@ import com.example.ui.theme.SoraFontFamily
 import com.example.ui.theme.SpaceGroteskFamily
 import com.example.ui.theme.StageAmber
 import com.example.ui.theme.StageCyan
-import com.example.ui.theme.StageObsidian
-import com.example.ui.theme.StageSurfaceElevated
-import com.example.ui.theme.StageViolet
+import com.example.ui.theme.StudioDimensions
+import com.example.ui.theme.StudioObsidian
+import com.example.ui.theme.StudioOutline
+import com.example.ui.theme.StudioRadii
+import com.example.ui.theme.StudioSpacing
+import com.example.ui.theme.StudioSurface
+import com.example.ui.theme.StudioSurfaceElevated
 import com.example.ui.theme.SyneFontFamily
-import com.example.ui.theme.TextMuted
+import com.example.ui.theme.WarmIvory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.math.roundToInt
@@ -143,8 +149,8 @@ fun resolveAlbumLightGradient(snapshot: PlaybackSnapshot): List<Color> {
 fun LyricColorPreset.resolveActiveColor(snapshot: PlaybackSnapshot): Color = when (this) {
     LyricColorPreset.ALBUM_ART -> resolveAlbumLightGradient(snapshot).first()
     LyricColorPreset.STAGE_WHITE -> Color.White
-    LyricColorPreset.ELECTRIC_VIOLET -> StageViolet
     LyricColorPreset.WARM_AMBER -> StageAmber
+    LyricColorPreset.WARM_IVORY -> WarmIvory
     LyricColorPreset.STAGE_CYAN -> StageCyan
     LyricColorPreset.DYNAMIC_PRIMARY -> MaterialTheme.colorScheme.primary
 }
@@ -779,66 +785,78 @@ fun SyncOffsetCalibrationRow(
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHapticFeedback.current
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = StageObsidian.copy(alpha = 0.75f),
-        shape = RoundedCornerShape(16.dp),
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = StudioSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Rounded.Tune,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            Icon(
+                imageVector = Icons.Rounded.Tune,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(StudioSpacing.md))
+            Column {
+                Text(
+                    text = "Sync Offset",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text(
-                        text = "Sync Offset",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = LyricActive
-                    )
-                    Text(
-                        text = if (offsetMs == 0L) "0 ms" else "${if (offsetMs > 0) "+" else ""}$offsetMs ms",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted
-                    )
+                Text(
+                    text = if (offsetMs == 0L) "0 ms (centered)" else "${if (offsetMs > 0) "+" else ""}$offsetMs ms",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (offsetMs == 0L) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(StudioSpacing.xs)
+        ) {
+            if (offsetMs != 0L) {
+                TextButton(
+                    onClick = onReset,
+                    modifier = Modifier.sizeIn(minWidth = StudioDimensions.minTouchTarget, minHeight = StudioDimensions.minTouchTarget)
+                ) {
+                    Text("Reset", style = MaterialTheme.typography.labelMedium)
                 }
             }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                FilledTonalIconButton(
-                    onClick = {
-                        if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onNudge(-100L)
-                    },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("offset_minus_button")
-                ) {
-                    Icon(Icons.Rounded.Remove, contentDescription = "Delay lyrics by 100ms")
-                }
-                if (offsetMs != 0L) {
-                    TextButton(onClick = onReset) { Text("Reset") }
-                }
-                FilledTonalIconButton(
-                    onClick = {
-                        if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onNudge(100L)
-                    },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("offset_plus_button")
-                ) {
-                    Icon(Icons.Rounded.Add, contentDescription = "Advance lyrics by 100ms")
-                }
+            FilledTonalIconButton(
+                onClick = {
+                    if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onNudge(-100L)
+                },
+                shape = RoundedCornerShape(StudioRadii.control),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = StudioSurfaceElevated,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                modifier = Modifier
+                    .size(StudioDimensions.minTouchTarget)
+                    .testTag("offset_minus_button")
+            ) {
+                Icon(Icons.Rounded.Remove, contentDescription = "Delay lyrics by 100ms")
+            }
+            FilledTonalIconButton(
+                onClick = {
+                    if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onNudge(100L)
+                },
+                shape = RoundedCornerShape(StudioRadii.control),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = StudioSurfaceElevated,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                modifier = Modifier
+                    .size(StudioDimensions.minTouchTarget)
+                    .testTag("offset_plus_button")
+            ) {
+                Icon(Icons.Rounded.Add, contentDescription = "Advance lyrics by 100ms")
             }
         }
     }
@@ -846,6 +864,8 @@ fun SyncOffsetCalibrationRow(
 
 @Composable
 fun DemoTransportBar(
+    trackTitle: String,
+    artistName: String,
     isPlaying: Boolean,
     positionMs: Long,
     durationMs: Long,
@@ -859,10 +879,41 @@ fun DemoTransportBar(
     val haptics = LocalHapticFeedback.current
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = StageSurfaceElevated,
-        shape = RoundedCornerShape(20.dp),
+        color = StudioSurface,
+        border = BorderStroke(StudioDimensions.dividerThickness, HairlineDivider),
+        shape = RoundedCornerShape(StudioRadii.frame),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+        Column(modifier = Modifier.padding(horizontal = StudioSpacing.lg, vertical = StudioSpacing.md)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = trackTitle,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (artistName.isNotBlank()) {
+                        Text(
+                            text = artistName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Text(
+                    text = "${formatTimestamp(positionMs)} / ${formatTimestamp(durationMs)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             val maxDuration = durationMs.coerceAtLeast(1000L).toFloat()
             Slider(
                 value = positionMs.coerceIn(0L, durationMs.coerceAtLeast(0L)).toFloat(),
@@ -871,7 +922,7 @@ fun DemoTransportBar(
                 colors = SliderDefaults.colors(
                     thumbColor = MaterialTheme.colorScheme.primary,
                     activeTrackColor = MaterialTheme.colorScheme.primary,
-                    inactiveTrackColor = StageObsidian
+                    inactiveTrackColor = StudioOutline
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -880,75 +931,72 @@ fun DemoTransportBar(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = formatTimestamp(positionMs),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                FilledTonalIconButton(
+                    onClick = {
+                        if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onPrevious()
+                    },
+                    shape = RoundedCornerShape(StudioRadii.control),
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = StudioSurfaceElevated,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier
+                        .size(StudioDimensions.minTouchTarget)
+                        .testTag("demo_prev_button")
                 ) {
-                    FilledTonalIconButton(
-                        onClick = {
-                            if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onPrevious()
-                        },
-                        modifier = Modifier
-                            .size(48.dp)
-                            .testTag("demo_prev_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.SkipPrevious,
-                            contentDescription = stringResource(R.string.cd_previous_demo)
-                        )
-                    }
-
-                    FilledIconButton(
-                        onClick = {
-                            if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onTogglePlayPause()
-                        },
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        modifier = Modifier
-                            .size(50.dp)
-                            .clip(CircleShape)
-                            .testTag("demo_play_button")
-                    ) {
-                        Icon(
-                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = stringResource(R.string.cd_play_pause_demo),
-                        )
-                    }
-
-                    FilledTonalIconButton(
-                        onClick = {
-                            if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onNext()
-                        },
-                        modifier = Modifier
-                            .size(48.dp)
-                            .testTag("demo_next_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.SkipNext,
-                            contentDescription = stringResource(R.string.cd_next_demo)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Rounded.SkipPrevious,
+                        contentDescription = stringResource(R.string.cd_previous_demo)
+                    )
                 }
 
-                Text(
-                    text = formatTimestamp(durationMs),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted
-                )
+                Spacer(modifier = Modifier.width(StudioSpacing.md))
+
+                FilledIconButton(
+                    onClick = {
+                        if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onTogglePlayPause()
+                    },
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    modifier = Modifier
+                        .size(StudioDimensions.minTouchTarget)
+                        .clip(CircleShape)
+                        .testTag("demo_play_button")
+                ) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = stringResource(R.string.cd_play_pause_demo),
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(StudioSpacing.md))
+
+                FilledTonalIconButton(
+                    onClick = {
+                        if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onNext()
+                    },
+                    shape = RoundedCornerShape(StudioRadii.control),
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = StudioSurfaceElevated,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier
+                        .size(StudioDimensions.minTouchTarget)
+                        .testTag("demo_next_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.SkipNext,
+                        contentDescription = stringResource(R.string.cd_next_demo)
+                    )
+                }
             }
         }
     }

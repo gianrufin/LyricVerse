@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -28,7 +30,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.AodLyricsActivity
 import com.example.ui.screens.HomeSettingsScreen
 import com.example.ui.theme.LyricVerseTheme
-import com.example.ui.theme.StageObsidian
 
 @Composable
 fun LyricVerseApp(viewModel: LyricVerseViewModel) {
@@ -65,9 +66,19 @@ fun LyricVerseApp(viewModel: LyricVerseViewModel) {
             val isExpandedLayout = maxWidth >= 600.dp
 
             Scaffold(
-                containerColor = StageObsidian,
+                containerColor = MaterialTheme.colorScheme.background,
                 contentWindowInsets = WindowInsets.safeDrawing,
-                snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+                snackbarHost = {
+                    SnackbarHost(hostState = snackbarHostState) { data ->
+                        Snackbar(
+                            snackbarData = data,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            actionColor = MaterialTheme.colorScheme.primary,
+                            shape = MaterialTheme.shapes.small,
+                        )
+                    }
+                },
             ) { innerPadding ->
                 HomeSettingsScreen(
                     uiState = uiState,

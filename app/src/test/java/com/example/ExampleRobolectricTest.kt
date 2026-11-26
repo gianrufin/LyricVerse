@@ -79,7 +79,9 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("auto_show_lock_switch").assertIsDisplayed()
         composeRule.onNodeWithTag("orientation_landscape").assertIsDisplayed()
 
-        // Start synced demo track and verify transport appears
+        // Navigate to Sources & Calibration and start synced demo track
+        composeRule.onNodeWithTag("category_sources").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("demo_chip_0").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("demo_play_button").assertIsDisplayed()
