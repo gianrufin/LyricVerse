@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
-import { X, Palette, Sparkles, Lock, Sliders, Search, Upload, RefreshCw } from 'lucide-react'
+import { X, Palette, Sparkles, Lock, Sliders, Search, Upload } from 'lucide-react'
 import { searchLrcLib } from '../services/lrcLib'
+import { parseLrc } from '../utils/lrcParser'
 
 const FONT_FAMILIES = [
   { id: 'PLUS_JAKARTA_SANS', label: 'Jakarta', category: 'STAGE' },
@@ -38,9 +39,7 @@ export function SettingsDrawer({
   onClose,
   preferences,
   onUpdatePreference,
-  onLoadDocument,
-  demoTracks,
-  onStartDemoTrack
+  onLoadDocument
 }) {
   const [activeTab, setActiveTab] = useState('THEME')
   const [searchQuery, setSearchQuery] = useState('')
@@ -66,7 +65,6 @@ export function SettingsDrawer({
     reader.onload = (event) => {
       const text = event.target?.result
       if (typeof text === 'string') {
-        const { parseLrc } = require('../utils/lrcParser')
         const doc = parseLrc(text, file.name.replace(/\.[^/.]+$/, ''), 'Uploaded File')
         onLoadDocument(doc)
       }
@@ -83,7 +81,7 @@ export function SettingsDrawer({
         <div className="flex items-center justify-between px-6 py-5 border-b border-hairline">
           <div>
             <h2 className="text-lg font-bold text-ivory tracking-tight">Studio Settings</h2>
-            <p className="text-xs text-stone-secondary">Customize your karaoke display & sources</p>
+            <p className="text-xs text-stone-secondary">Customize display & LRCLIB search</p>
           </div>
           <button
             onClick={onClose}
@@ -99,7 +97,7 @@ export function SettingsDrawer({
             { id: 'THEME', label: 'Theme', icon: Palette },
             { id: 'TRANSITIONS', label: 'Transitions', icon: Sparkles },
             { id: 'LOCK_AOD', label: 'AOD & Stage', icon: Lock },
-            { id: 'SOURCES', label: 'Sources', icon: Sliders }
+            { id: 'SOURCES', label: 'Search & Sources', icon: Sliders }
           ].map(tab => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -333,34 +331,13 @@ export function SettingsDrawer({
           {activeTab === 'SOURCES' && (
             <div className="space-y-6">
               <div>
-                <span className="text-xs font-mono tracking-wider text-stone-secondary block mb-3">DEMO KARAOKE TRACKS</span>
-                <div className="space-y-2">
-                  {demoTracks.map((track, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => onStartDemoTrack(idx)}
-                      className="w-full p-3 rounded-xl bg-obsidian hover:bg-elevated border border-hairline flex items-center justify-between transition-colors text-left"
-                    >
-                      <div>
-                        <span className="text-sm font-semibold text-ivory block">{track.trackTitle}</span>
-                        <span className="text-xs text-stone-secondary">{track.artistName}</span>
-                      </div>
-                      <span className="text-xs font-mono text-amber">Load Demo</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="h-px bg-hairline" />
-
-              <div>
-                <span className="text-xs font-mono tracking-wider text-stone-secondary block mb-3">SEARCH LRCLIB ONLINE</span>
+                <span className="text-xs font-mono tracking-wider text-stone-secondary block mb-3">SEARCH LRCLIB FOR SPOTIFY / YOUTUBE</span>
                 <form onSubmit={handleSearch} className="flex gap-2">
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Song title or artist..."
+                    placeholder="Enter song title or artist..."
                     className="flex-1 bg-obsidian border border-hairline rounded-xl px-4 py-2.5 text-sm text-ivory focus:outline-none focus:border-amber"
                   />
                   <button
@@ -376,18 +353,18 @@ export function SettingsDrawer({
                 )}
 
                 {searchResults.length > 0 && (
-                  <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
+                  <div className="mt-3 space-y-2 max-h-64 overflow-y-auto">
                     {searchResults.map((res, rIdx) => (
                       <div key={rIdx} className="p-3 rounded-xl bg-obsidian border border-hairline flex items-center justify-between">
-                        <div>
-                          <p className="text-xs font-bold text-ivory">{res.trackTitle}</p>
-                          <p className="text-[11px] text-stone-secondary">{res.artistName}</p>
+                        <div className="truncate pr-3">
+                          <p className="text-xs font-bold text-ivory truncate">{res.trackTitle}</p>
+                          <p className="text-[11px] text-stone-secondary truncate">{res.artistName}</p>
                         </div>
                         <button
                           onClick={() => onLoadDocument(res)}
-                          className="px-3 py-1.5 rounded-lg bg-elevated hover:bg-highest text-xs font-medium text-amber border border-outline"
+                          className="px-3 py-1.5 rounded-lg bg-elevated hover:bg-highest text-xs font-medium text-amber border border-outline whitespace-nowrap"
                         >
-                          Select
+                          Load Stage
                         </button>
                       </div>
                     ))}
